@@ -1,0 +1,15 @@
+#potentially large files
+*.h5
+*.hdf5
+*.dat
+*.bin
+
+#media files
+*.mp4
+*.png
+*.eps
+*.jpg
+*.jpeg
+*.pdf
+*.out
+*.mod
