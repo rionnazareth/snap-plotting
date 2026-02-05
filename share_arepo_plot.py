@@ -251,7 +251,13 @@ def plot_quad_axis(
         quad_ax.spines['left'].set_visible(False)
         quad_ax.set_yticks([])
 
-    return quad_ax
+    mappable = None
+    if quad_ax.collections:
+        mappable = quad_ax.collections[-1]
+    elif quad_ax.images:
+        mappable = quad_ax.images[-1]
+    
+    return quad_ax, mappable
 
 
 BASE_PATH = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
@@ -299,93 +305,60 @@ res = 1024               # Pixels per panel
 
 # Here we're passing the same snap each time, but you could give each one a different snapshot to make e.g. a time series image
 
-quad_TL = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [0,0],
-    var = 'temp',
-    weighted = 'rho', # or None
-    ranges = [5e5,1e9],
-    cmap = 'gnuplot',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
+plot_configs = {
+    'TL': {'quad_ax_loc': [0, 0], 'var': 'temp', 'weighted': 'rho', 'ranges': [5e5, 1e9], 'cmap': 'gnuplot'},
+    'BL': {'quad_ax_loc': [1, 0], 'var': 'pres', 'weighted': 'rho', 'ranges': None, 'cmap': 'viridis'},
+    'TR': {'quad_ax_loc': [0, 1], 'var': 'speed', 'weighted': 'rho', 'ranges': [1e1, 1e3], 'cmap': 'plasma'},
+    'BR': {'quad_ax_loc': [1, 1], 'var': 'wind', 'weighted': 'rho', 'ranges': None, 'cmap': 'Blues'},
+}
+
+# Prepare arguments for parallel processing
+pool_args = [(name, cfg, s, fig, quad_subs, image_proj, proj_on, proj_fact, res, plotsize) 
+             for name, cfg in plot_configs.items()]
+
+# Run plots sequentially (matplotlib objects cannot be pickled for multiprocessing)
+results = {}
+for name, cfg in plot_configs.items():
+    ax, mappable = plot_quad_axis(
+        s, fig, quad_subs,
+        quad_ax_loc=cfg['quad_ax_loc'],
+        var=cfg['var'],
+        weighted=cfg['weighted'],
+        ranges=cfg['ranges'],
+        cmap=cfg['cmap'],
+        logplot=True,
+        divzero=False,
+        divzero_centre=None,
+        colorbar=False,
+        image_proj=image_proj,
+        proj_on=proj_on,
+        proj_fact=proj_fact,
+        res=res,
+        plotsize=plotsize
     )
+    results[name] = (ax, mappable)
 
+quad_TL, map_TL = results['TL']
+quad_BL, map_BL = results['BL']
+quad_TR, map_TR = results['TR']
+quad_BR, map_BR = results['BR']
 
-# Bottom left
+# Adjust figure to make room for colorbars
+# fig.subplots_adjust(bottom=0.12, top=0.88)
 
-quad_BL = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [1,0],
-    var = 'pres',
-    weighted = 'rho', # or None
-    # ranges = [1e6,1e9],
-    cmap = 'viridis',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
+# Add colorbars - top row at the top, bottom row at the bottom
+if map_TL is not None:
+    cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.05, 
+                           quad_TL.get_position().width, 0.02])
+    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal')
+if map_BL is not None:
+    fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal', pad=0.1, fraction=0.046)
+if map_TR is not None:
+    cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.05, 
+                           quad_TR.get_position().width, 0.02])
+    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal')
+if map_BR is not None:
+    fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', pad=0.1, fraction=0.046)
 
-
-# Top right
-
-quad_TR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [0,1],
-    var = 'speed',
-    weighted = 'rho', # or None
-    ranges = [1e1,1e3],
-    cmap = 'plasma',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-
-# Bottom right
-
-quad_BR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [1,1],
-    var = 'wind',
-    weighted = 'rho', # or None
-    #ranges = [1e6,1e9],
-    cmap = 'Blues',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
 fig.savefig('plots_new/quad_temp_snap{}_{}.png'.format(number_string(snap_num),image_proj),dpi=300)
 # plt.show()
