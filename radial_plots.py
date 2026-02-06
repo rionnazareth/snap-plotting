@@ -257,8 +257,6 @@ if __name__ == "__main__":
                                             xlabel='Radius [kpc]',
                                             title='Comparison',
                                             logplot=False,
-                                            radial_range=(10, 50),
-                                            nbins=1000,
                                             norm=True,
                                             colors=('#d62728', '#2ca02c')  # Red and green
                                         )
@@ -271,11 +269,9 @@ if __name__ == "__main__":
                                             xlabel='Radius [kpc]',
                                             title='Comparison',
                                             logplot=False,
-                                            radial_range=(10, 50),
-                                            nbins=1000,
                                             norm=True,
                                             newfig=False,
                                             colors=("#9f1bb0", "#17c1db")  # Red and green
                                         )
 
-    plt.savefig('radial_comparison.png', dpi=300)
+    plt.savefig('plots_new/radial_comparison.png', dpi=300)
