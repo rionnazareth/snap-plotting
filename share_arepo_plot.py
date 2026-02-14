@@ -15,7 +15,7 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 
 import sys
-sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
+sys.path.insert(0, '/home/c5046973/agn/arepo-snap-util')
 import arepo_run as arun
 import gadget
 
@@ -86,7 +86,13 @@ def calc_T(data):
     return temp
 
 def calc_P(data):
-    pressure = (data['rho']*unit_rho) * (data['u']*unit_v**2) * (GAMMA - 1)
+    pressure = (data['rho']) * (data['u']) * (GAMMA - 1)
+    print('pressure:', pressure)
+    return pressure
+
+def calc_CRP(data, gamma_cr=4/3):
+    pressure = (data['rho']) * (data['cren']) * (gamma_cr - 1)
+    print('CR pressure:', pressure)
     return pressure
 
 def rho_to_n_cm(data):
@@ -169,6 +175,14 @@ def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbo
     s.data['vrad'] = (vx * xx/rr + vy * yy/rr + vz * zz/rr)
 
     s.data['speed']     = np.linalg.norm(s.data['vel'], axis=1)
+
+    s.data['energdens'] = s.data['u']*s.data['rho']
+
+    s.data['bfldenerg'] = (np.linalg.norm(s.data['bfld'], axis=1))**2 /(2*s.data['rho'])
+    # print((s.data['bfldenerg'] == np.zeros_like(s.data['bfldenerg'])).all())
+    if 'cren' in s.data:
+        s.data['crpres'] = calc_CRP(s.data)
+        
     
 
     if 'coor' in s.data:
@@ -257,7 +271,7 @@ def plot_quad_axis(
     return quad_ax, mappable
 
 
-BASE_PATH = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
+BASE_PATH = '/home/c5046973/agn/gasCloudTest/arepo_t'
 SNAPBASE = 'snap_'
 SNAPFILETYPE = '.hdf5'
 
@@ -281,8 +295,8 @@ quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace
 
 ## Load the snapshot
 
-snap_num = 1
-output_path = BASE_PATH + '/output_refined_hl/'
+snap_num = 3
+output_path = BASE_PATH + '/output_cr/'
 
 s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
 snap_time = calc_snap_time(s)
@@ -307,9 +321,9 @@ quad_TL, map_TL = plot_quad_axis(
     fig,
     quad_subs,
     quad_ax_loc = [0,0],
-    var = 'temp',
+    var = 'pres',
     weighted = 'rho', # or None
-    ranges = [5e5,1e9],
+    ranges = [1e-1,1e1],
     cmap = 'gnuplot',
     logplot = True,
     divzero = False,
@@ -330,9 +344,57 @@ quad_BL, map_BL = plot_quad_axis(
     fig,
     quad_subs,
     quad_ax_loc = [1,0],
-    var = 'pres',
+    var = 'crpres',
     weighted = 'rho', # or None
-    # ranges = [1e6,1e9],
+    ranges = [1e-1,1e1],
+    cmap = 'gnuplot',
+    logplot = True,
+    divzero = False,
+    divzero_centre = None,
+    colorbar=False,
+    image_proj = image_proj,
+    proj_on = proj_on,
+    proj_fact = proj_fact,
+    res = res,
+    plotsize = plotsize
+    )
+
+# Bottom right
+
+quad_BR, map_BR = plot_quad_axis(
+    s,
+    fig,
+    quad_subs,
+    quad_ax_loc = [1,1],
+    var = 'mach',
+    weighted = 'rho', # or None
+    # ranges = [1e4,1e9],
+    cmap = 'viridis',
+    logplot = True,
+    divzero = False,
+    divzero_centre = None,
+    colorbar=False,
+    image_proj = image_proj,
+    proj_on = proj_on,
+    proj_fact = proj_fact,
+    res = res,
+    plotsize = plotsize
+    )
+# snap_num = 3
+# output_path = BASE_PATH + '/output_bola/'
+
+# s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+# snap_time = calc_snap_time(s)
+# Top right
+
+quad_TR, map_TR = plot_quad_axis(
+    s,
+    fig,
+    quad_subs,
+    quad_ax_loc = [0,1],
+    var = 'rho',
+    weighted = 'rho', # or None
+    # ranges = [1e4,1e9],
     cmap = 'viridis',
     logplot = True,
     divzero = False,
@@ -346,64 +408,20 @@ quad_BL, map_BL = plot_quad_axis(
     )
 
 
-# Top right
 
-quad_TR, map_TR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [0,1],
-    var = 'speed',
-    weighted = 'rho', # or None
-    ranges = [1e1,1e3],
-    cmap = 'plasma',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-
-# Bottom right
-
-quad_BR, map_BR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [1,1],
-    var = 'wind',
-    weighted = 'rho', # or None
-    #ranges = [1e6,1e9],
-    cmap = 'Blues',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
 # plt.show()
 
 # Adjust figure to make room for colorbars
 # fig.subplots_adjust(bottom=0.12, top=0.88)
 
 # Add colorbars - top row at the top, bottom row at the bottom
-cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.05, 
+cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.07, 
                         quad_TL.get_position().width, 0.02])
-fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal')
-fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal', pad=0.1, fraction=0.046)
-cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.05, 
+fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label='Pressure')
+fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal',  fraction=0.046, label='CR Pressure')
+cax_TR = fig.add_axes([quad_TR.get_position().x0+0.02, quad_TR.get_position().y1 + 0.07, 
                         quad_TR.get_position().width, 0.02])
-fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal')
-fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', pad=0.1, fraction=0.046)
-
+fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label='Density')
+fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', fraction=0.046, label='Mach number')
 fig.savefig('plots_new/quad_temp_snap{}_{}.png'.format(number_string(snap_num),image_proj),dpi=300)
 # plt.show()
