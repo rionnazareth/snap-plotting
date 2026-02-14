@@ -15,7 +15,7 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 
 import sys
-sys.path.insert(0, '/home/c5046973/agn/arepo-snap-util')
+sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
 import arepo_run as arun
 import gadget
 
@@ -271,7 +271,7 @@ def plot_quad_axis(
     return quad_ax, mappable
 
 
-BASE_PATH = '/home/c5046973/agn/gasCloudTest/arepo_t'
+BASE_PATH = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
 SNAPBASE = 'snap_'
 SNAPFILETYPE = '.hdf5'
 
@@ -295,8 +295,8 @@ quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace
 
 ## Load the snapshot
 
-snap_num = 3
-output_path = BASE_PATH + '/output_cr/'
+snap_num = 2
+output_path = BASE_PATH + '/output_crexps/'
 
 s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
 snap_time = calc_snap_time(s)
