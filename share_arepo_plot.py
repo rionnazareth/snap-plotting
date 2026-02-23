@@ -293,23 +293,24 @@ outer = gridspec.GridSpec(1, 1, wspace=0.2)
 quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace=0, wspace=0)
 
 
-## Load the snapshot
 
-snap_num = 2
-output_path = BASE_PATH + '/output_crexps/'
-
-s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-snap_time = calc_snap_time(s)
 
 
 ## Set global figure options
 
 image_proj = 'side'     # side or top viewing angle
-plotsize =  20        # Size in kpc of one panel
+plotsize =  50        # Size in kpc of one panel
 proj_on = False        # Whether to do a slice or a projection
 proj_fact = 0.1         # Fraction of plotsize to project through
 res = 1024               # Pixels per panel
 
+## Load the snapshot
+
+snap_num = 5
+output_path = BASE_PATH + '/output_cr/'
+
+s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+snap_time = calc_snap_time(s)
 
 ## Plot each axis quadrent
 # Top left
@@ -347,7 +348,7 @@ quad_BL, map_BL = plot_quad_axis(
     var = 'crpres',
     weighted = 'rho', # or None
     ranges = [1e-1,1e1],
-    cmap = 'gnuplot',
+    cmap = 'viridis',
     logplot = True,
     divzero = False,
     divzero_centre = None,
@@ -359,6 +360,11 @@ quad_BL, map_BL = plot_quad_axis(
     plotsize = plotsize
     )
 
+# snap_num = 3
+output_path = BASE_PATH + '/output_crexps/'
+
+s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+snap_time = calc_snap_time(s)
 # Bottom right
 
 quad_BR, map_BR = plot_quad_axis(
@@ -366,9 +372,9 @@ quad_BR, map_BR = plot_quad_axis(
     fig,
     quad_subs,
     quad_ax_loc = [1,1],
-    var = 'mach',
+    var = 'crpres',
     weighted = 'rho', # or None
-    # ranges = [1e4,1e9],
+    ranges = [1e-1,1e1],
     cmap = 'viridis',
     logplot = True,
     divzero = False,
@@ -380,11 +386,7 @@ quad_BR, map_BR = plot_quad_axis(
     res = res,
     plotsize = plotsize
     )
-# snap_num = 3
-# output_path = BASE_PATH + '/output_bola/'
 
-# s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-# snap_time = calc_snap_time(s)
 # Top right
 
 quad_TR, map_TR = plot_quad_axis(
@@ -392,10 +394,10 @@ quad_TR, map_TR = plot_quad_axis(
     fig,
     quad_subs,
     quad_ax_loc = [0,1],
-    var = 'rho',
+    var = 'pres',
     weighted = 'rho', # or None
-    # ranges = [1e4,1e9],
-    cmap = 'viridis',
+    ranges = [1e-1,1e1],
+    cmap = 'gnuplot',
     logplot = True,
     divzero = False,
     divzero_centre = None,
@@ -417,11 +419,11 @@ quad_TR, map_TR = plot_quad_axis(
 # Add colorbars - top row at the top, bottom row at the bottom
 cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.07, 
                         quad_TL.get_position().width, 0.02])
-fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label='Pressure')
-fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal',  fraction=0.046, label='CR Pressure')
+fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label='Pressure (w/o diff)')
+fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal',  fraction=0.046, label='CR Pressure (w/o diff)')
 cax_TR = fig.add_axes([quad_TR.get_position().x0+0.02, quad_TR.get_position().y1 + 0.07, 
                         quad_TR.get_position().width, 0.02])
-fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label='Density')
-fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', fraction=0.046, label='Mach number')
-fig.savefig('plots_new/quad_temp_snap{}_{}.png'.format(number_string(snap_num),image_proj),dpi=300)
+fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label='Pressure ')
+fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', fraction=0.046, label='CR Pressure')
+fig.savefig('plots_new/diffcr_snap{}_{}.png'.format(number_string(snap_num),image_proj),dpi=300)
 # plt.show()
