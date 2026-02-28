@@ -46,9 +46,9 @@ unit_v     = 1.e5
 PATH_CR    = BASE_PATH + '/output_cr/'
 PATH_CREXP = BASE_PATH + '/output_crexps/'
 PATH_NOCR  = BASE_PATH + '/output2/'
-N_CR       = 7    # snaps 000–006
-N_CREXP    = 7    # snaps 000–006
-N_NOCR     = 7    # snaps 000–006
+N_CR       = 9    # snaps 000–006
+N_CREXP    = 8   # snaps 000–006
+N_NOCR     = 9    # snaps 000–006
 COMMON_N   = min(N_CR, N_CREXP, N_NOCR)   # 6
 
 OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots')
@@ -279,7 +279,7 @@ for ax in axes:
             lw=2, label='no diffusion (output_cr)')
     ax.plot(t_crex_arr, r_crex_arr, 's--', color='darkorange',
             lw=2, label='with diffusion (output_crexps)')
-    ax.plot(t_nocr_arr, r_nocr_arr, '^:', color='dimgrey',
+    ax.plot(t_nocr_arr, r_nocr_arr, '^:', color='maroon',
             lw=2, label='no CRs (output2)')
     ax.set_xlabel('Time [Myr]', fontsize=11)
     ax.set_ylabel('Shock radius [kpc]', fontsize=11)
