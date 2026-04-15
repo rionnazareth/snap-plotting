@@ -31,8 +31,8 @@ All figures are saved to tests/plots_energy/.
 import sys, os
 
 # ── path setup ───────────────────────────────────────────────────────────────
-sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
-sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/gasCloudNfw/snap-plotting')
+# sys.path.insert(0, '/home/dc-naza3/arepo-snap-util')
+sys.path.insert(0, '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting')
 
 import numpy as np
 import matplotlib
@@ -41,28 +41,34 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import arepo_run as arun
 import astropy.units as u
-
+from lib import *
 # ── constants ─────────────────────────────────────────────────────────────────
 GAMMA    = 5. / 3.
 GAMMA_CR = 4. / 3.
 k_B      = 1.381e-16    # erg K⁻¹
 m_p      = 1.66e-24     # g
-unit_v   = 1.e5         # cm s⁻¹   (1 km/s)
+unit_v   = 1.651077e6#1.e5         # cm s⁻¹   (1 km/s)
 
 # ── simulation paths ──────────────────────────────────────────────────────────
-BASE     = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
+BASE     = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
 SNAPBASE = 'snap_'
 
 RUNS = {
-    'no-CR\n(output2)':         {'path': BASE + '/output2/',     'has_cr': False},
-    'CR (no diff)\n(output_cr)':  {'path': BASE + '/output_cr/',   'has_cr': True},
-    'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
+    'no CRs':       {'path': BASE + '/output_homo/',     'has_cr': False},
+    'only CRs':     {'path': BASE + '/output_cr/',       'has_cr': True},
+    'uni':         {'path': BASE + '/output_uni/',     'has_cr': True},
+    'obli':  {'path': BASE + '/output_obli/',   'has_cr': True},
+    'turb': {'path': BASE + '/output_bfield/',   'has_cr': True},
+    # 'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
 }
 
 COLORS = {
-    'no-CR\n(output2)':          'dimgrey',
-    'CR (no diff)\n(output_cr)':  'steelblue',
-    'CR (diff)\n(output_crexps)': 'darkorange',
+    'no CRs':       'lightcoral',
+    # 'only CRs':     'lightblue',
+    'uni':          'dimgrey',
+    'obli':  'steelblue',
+    'turb': 'darkgreen',
+    # 'CR (diff)\n(output_crexps)': 'darkorange',
 }
 
 OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots_energy')
@@ -72,7 +78,7 @@ os.makedirs(OUTDIR, exist_ok=True)
 # Helper: unit conversion – code time → Myr
 # ─────────────────────────────────────────────────────────────────────────────
 _UNIT_L = 3.08568e21   # cm  (1 kpc)
-_UNIT_V = 1.00e5       # cm/s (1 km/s)
+_UNIT_V = 1.651077e6       # cm/s (1 km/s)
 _UNIT_T = _UNIT_L / _UNIT_V  # s
 
 
@@ -142,26 +148,26 @@ print('Reading energy files …')
 energy  = {}
 cre     = {}
 
-for label, cfg in RUNS.items():
-    energy[label] = read_energy(cfg['path'])
-    # Convert time to Myr
-    energy[label]['time_myr'] = code_time_to_Myr(energy[label]['time'])
-    if cfg['has_cr']:
-        cre[label] = read_crenergy(cfg['path'])
-        if cre[label] is not None:
-            cre[label]['time_myr'] = code_time_to_Myr(cre[label]['time'])
-            # CR energy shares the same time grid as energy.txt
-            energy[label]['ecr']    = cre[label]['ecr']
-            energy[label]['etotal'] = energy[label]['emech'] + cre[label]['ecr']
-        else:
-            energy[label]['ecr']    = np.zeros_like(energy[label]['time'])
-            energy[label]['etotal'] = energy[label]['emech']
-    else:
-        energy[label]['ecr']    = np.zeros_like(energy[label]['time'])
-        energy[label]['etotal'] = energy[label]['emech']
+# for label, cfg in RUNS.items():
+#     energy[label] = read_energy(cfg['path'])
+#     # Convert time to Myr
+#     energy[label]['time_myr'] = code_time_to_Myr(energy[label]['time'])
+#     if cfg['has_cr']:
+#         cre[label] = read_crenergy(cfg['path'])
+#         if cre[label] is not None:
+#             cre[label]['time_myr'] = code_time_to_Myr(cre[label]['time'])
+#             # CR energy shares the same time grid as energy.txt
+#             energy[label]['ecr']    = cre[label]['ecr']
+#             energy[label]['etotal'] = energy[label]['emech'] + cre[label]['ecr']
+#         else:
+#             energy[label]['ecr']    = np.zeros_like(energy[label]['time'])
+#             energy[label]['etotal'] = energy[label]['emech']
+#     else:
+#         energy[label]['ecr']    = np.zeros_like(energy[label]['time'])
+#         energy[label]['etotal'] = energy[label]['emech']
 
-    print(f"  {label.replace(chr(10),' '):<35s}: {len(energy[label]['time'])} time steps, "
-          f"E₀ = {energy[label]['etotal'][0]:.4g} [code]")
+#     print(f"  {label.replace(chr(10),' '):<35s}: {len(energy[label]['time'])} time steps, "
+#           f"E₀ = {energy[label]['etotal'][0]:.4g} [code]")
 
 
 
@@ -320,18 +326,19 @@ for label, cfg in RUNS.items():
         print(f'  {label.replace(chr(10)," ")}: no snapshots found – skipping')
         continue
 
-    run = arun.Run(snappath=path, snapbase=SNAPBASE)
+    # run = arun.Run(snappath=path, snapbase=SNAPBASE)
 
     times_code = []
     ekin_arr   = []
     etherm_arr = []
     ecr_arr    = []
+    ebfld_arr  = []
     epot_arr   = []
     etot_arr   = []
 
     for i in range(n_snaps):
         try:
-            s = run.loadSnap(snapnum=i)
+            s = load_snap_data( num=i,snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
             print(f'    Could not load {label.replace(chr(10)," ")} snap {i}: {exc}')
             continue
@@ -346,24 +353,31 @@ for label, cfg in RUNS.items():
         ec = 0.0
         if has_cr and 'cren' in s.data:
             ec = np.sum(mass * s.data['cren'])
+        
+        eb = 0.0
+        if 'bfld' in s.data:
+            # If magnetic fields are present, include their energy as well
+            eb = np.sum(mass * s.data['bflden'])
 
-        ep = nfw_epot_snapshot(s)
+        ep = 0.0  # no gravity in homo sims else --> nfw_epot_snapshot(s)
 
-        times_code.append(s.header['Time'])
+        times_code.append(calc_snap_time(s))
         ekin_arr.append(ek)
         etherm_arr.append(et)
         ecr_arr.append(ec)
+        ebfld_arr.append(eb)
         epot_arr.append(-ep)
         #etot_arr.append(ek + et + ec - ep)
 
     snap_energy[label] = {
         'time':     np.array(times_code),
-        'time_myr': code_time_to_Myr(np.array(times_code)),
+        'time_myr': np.array(times_code),
         'ekin':     np.array(ekin_arr),
         'etherm':   np.array(etherm_arr),
         'ecr':      np.array(ecr_arr),
+        'ebfld':    np.array(ebfld_arr),
         'epot':     np.array(epot_arr),
-        'etotal':   np.array(ekin_arr) + np.array(etherm_arr) + np.array(epot_arr) + np.array(ecr_arr),
+        'etotal':   np.array(ekin_arr) + np.array(etherm_arr) + np.array(ecr_arr)+ np.array(epot_arr)+np.array(ebfld_arr),
         'emech':    np.array(ekin_arr) + np.array(etherm_arr) + np.array(epot_arr)
     }
     print(f'  {label.replace(chr(10)," "):<35s}: {n_snaps} snaps, '
@@ -390,7 +404,7 @@ for label in snap_energy:
 ax_norm.axhline(1, color='k', lw=0.8, ls='--', alpha=0.5)
 ax_norm.set_xlabel('Time [Myr]', fontsize=11)
 ax_norm.set_ylabel(r'$E_\mathrm{total}(t)/E_\mathrm{total}(0)$', fontsize=11)
-ax_norm.set_title(r'(a) Total energy (incl. $\Phi_\mathrm{NFW}$) normalised', fontsize=11)
+ax_norm.set_title(r'(a) Total energy normalised', fontsize=11)
 ax_norm.legend(fontsize=8, framealpha=0.7)
 ax_norm.grid(True, alpha=0.3, ls='--')
 ax_norm.set_xlim(left=0)
@@ -414,17 +428,17 @@ ax_dev.set_xlim(left=0)
 # Panel (c): Snapshot vs energy.txt comparison for each run
 for label in snap_energy:
     se = snap_energy[label]
-    e  = energy[label]
+    # e  = energy[label]
     col = COLORS[label]
     name = label.replace('\n', ' ')
 
     # energy.txt total (does NOT include E_pot since COMPUTE_POTENTIAL_ENERGY is off)
-    mask = e['time_myr']>=10
-    ax_comp.plot(e['time_myr'][mask], e['etotal'][mask], '-', color=col, lw=2,
-                 alpha=0.6, label=f'{name} energy.txt (no $\\Phi$)')
+    # mask = e['time_myr']>=10
+    # ax_comp.plot(e['time_myr'], e['etotal'], '-', color=col, lw=2,
+    #              alpha=0.6, label=f'{name} energy.txt (no $\\Phi$)')
     # snapshot total (includes E_pot)
-    mask = se['time_myr']>=10
-    ax_comp.plot(se['time_myr'][mask], se['etotal'][mask], 'o', color=col, ms=5,
+    # mask = se['time_myr']>=10
+    ax_comp.plot(se['time_myr'], se['etotal'], 'o', color=col, ms=5,
                  mfc='none', mew=1.5, label=f'{name} snap (with $\\Phi$)')
 
 ax_comp.set_xlabel('Time [Myr]', fontsize=11)
@@ -463,12 +477,16 @@ for label in snap_energy:
     E0  = np.abs(se['etotal'][0])
     col = COLORS[label]
     name = label.replace('\n', ' ')
-    ax_parts.plot(se['time_myr'], se['ekin']   / E0, 's-',  color=col, ms=3, lw=1,
-                  alpha=0.6, label=f'{name} $E_\\mathrm{{kin}}$')
-    ax_parts.plot(se['time_myr'], se['etherm'] / E0, '^-',  color=col, ms=3, lw=1,
-                  alpha=0.6, label=f'{name} $E_\\mathrm{{th}}$')
-    ax_parts.plot(se['time_myr'], se['epot']   / E0, 'v--', color=col, ms=3, lw=1,
-                  alpha=0.6, label=f'{name} $E_\\mathrm{{pot}}$')
+    # ax_parts.plot(se['time_myr'], se['ekin']   / E0, 's-',  color=col, ms=3, lw=1,
+    #               alpha=0.6, label=f'{name} $E_\\mathrm{{kin}}$')
+    # ax_parts.plot(se['time_myr'], se['etherm'] / E0, '^-',  color=col, ms=3, lw=1,
+    #               alpha=0.6, label=f'{name} $E_\\mathrm{{th}}$')
+    # # ax_parts.plot(se['time_myr'], se['epot']   / E0, 'v--', color=col, ms=3, lw=1,
+    # #               alpha=0.6, label=f'{name} $E_\\mathrm{{pot}}$')
+    # ax_parts.plot(se['time_myr'], se['ecr'] / E0, 'v--',  color=col, ms=3, lw=1,
+    #               alpha=0.6, label=f'{name} $E_\\mathrm{{cr}}$')
+    ax_parts.plot(se['time_myr'], se['ebfld'] / E0, 'd-',  color=col, ms=3, lw=1,
+                  alpha=0.6, label=f'{name} $E_\\mathrm{{B}}$')
 
 ax_parts.set_xlabel('Time [Myr]', fontsize=11)
 ax_parts.set_ylabel(r'Energy $/ |E_\mathrm{total,0}|$', fontsize=11)

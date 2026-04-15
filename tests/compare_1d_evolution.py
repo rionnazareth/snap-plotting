@@ -35,85 +35,43 @@ import astropy.units as u
 import arepo_run as arun
 
 # ── constants & paths ─────────────────────────────────────────────────────────
-BASE_PATH  = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
+BASE_PATH  = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
 SNAPBASE   = 'snap_'
 GAMMA      = 5./3
 GAMMA_CR   = 4./3
 k_B        = 1.381e-16
 m_p        = 1.66e-24
-unit_v     = 1.e5
+HYDROGENMASS_FRAC = 0.76
 
 PATH_CR    = BASE_PATH + '/output_cr/'
-PATH_CREXP = BASE_PATH + '/output_crexps/'
-PATH_NOCR  = BASE_PATH + '/output2/'
-N_CR       = 9    # snaps 000–006
-N_CREXP    = 8   # snaps 000–006
-N_NOCR     = 9    # snaps 000–006
+PATH_CREXP = BASE_PATH + '/output_uni/'
+PATH_NOCR  = BASE_PATH + '/output_obli/'
+N_CR       = 11    # snaps 000–006
+N_CREXP    = 11   # snaps 000–006
+N_NOCR     = 11   # snaps 000–006
 COMMON_N   = min(N_CR, N_CREXP, N_NOCR)   # 6
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'crevo')
 os.makedirs(OUTDIR, exist_ok=True)
 
-# ── helper functions ──────────────────────────────────────────────────────────
-def snap_time_myr(s):
-    Lu = s.header['UnitLength_in_cm'] * u.cm
-    Vu = s.header['UnitVelocity_in_cm_per_s'] * u.cm / u.s
-    return (s.header['Time'] * Lu / Vu).to(u.Myr).value
-
-
-def enrich_snap(s):
-    mu = 0.6 * m_p
-    s.data['temp']  = (GAMMA - 1) * mu / k_B * s.data['u'] * unit_v**2
-    s.data['speed'] = np.linalg.norm(s.data['vel'], axis=1)
-    if 'cren' in s.data:
-        s.data['crpres'] = (GAMMA_CR - 1) * s.data['rho'] * s.data['cren']
-    return s
-
-
-def radial_profile_log(s, field, r_range=(2.5, 200), nbins=200):
-    """
-    Logarithmically binned radial profile.  Returns (r_centres, values).
-    Mirrors rvsval() from shocks1d.ipynb.
-    """
-    pos = s.data['pos']
-    ctr = np.array([s.boxsize / 2] * 3)
-    r   = np.linalg.norm(pos - ctr, axis=1)
-
-    # radial velocity (attach once)
-    if 'vrad' not in s.data:
-        diff = pos - ctr
-        vdot = np.sum(diff * s.data['vel'], axis=1)
-        s.data['vrad'] = vdot / (r + 1e-30)
-
-    if field not in s.data:
-        return None, None
-
-    vals     = s.data[field]
-    rlo, rhi = r_range
-    mask     = (r >= rlo) & (r <= rhi) & np.isfinite(vals)
-
-    r_bins   = np.logspace(np.log10(rlo), np.log10(rhi), nbins + 1)
-    r_ctrs   = 0.5 * (r_bins[:-1] + r_bins[1:])
-    idx      = np.digitize(r[mask], r_bins)
-    profile  = np.array([
-        vals[mask][idx == i].mean() if np.any(idx == i) else np.nan
-        for i in range(1, nbins + 1)
-    ])
-    return r_ctrs, profile
-
+from lib import *
 
 # ── quantity catalogue ────────────────────────────────────────────────────────
 # (field_key,   label,                   log_y?)
 QUANTITIES = [
-    ('rho',    r'Density $\rho$ [code]',          True),
-    ('pres',   r'Thermal pressure [code]',         True),
-    ('crpres', r'CR pressure [code]',              True),
-    ('u',      r'Internal energy [code]',          True),
-    ('speed',  r'Speed [code km/s]',               True),
-    ('mach',   r'Mach number',                     True),
+    ('rho',       r'Density $\rho$ [code]',      True),
+    ('pres',      r'Thermal pressure [code]',     True),
+    ('crpres',    r'CR pressure [code]',          True),
+    ('cren',      r'CR energy density [code]',    True),
+    ('u',         r'Internal energy [code]',      True),
+    ('speed',     r'Speed |v| [code km/s]',       True),
+    ('mach',      r'Mach number',                 True),
+    ('vrad',      r'Radial velocity [code km/s]', False),
+    ('bflden',    r'B-field energy density [code]', False),
+    ('bflds',     r'B-field strength [code]',      False)
 ]
 
-R_RANGE = (11.0, 50.0)   # kpc
+R_RANGE = (0, 1)   # kpc
 NBINS   = 300
 
 # ── load ALL snapshots for both runs ─────────────────────────────────────────
@@ -123,25 +81,22 @@ snaps_cr, snaps_crex, snaps_nocr = [], [], []
 times_cr, times_crex, times_nocr = [], [], []
 
 for n in range(N_CR):
-    o = arun.Run(snappath=PATH_CR, snapbase=SNAPBASE)
-    s = enrich_snap(o.loadSnap(snapnum=n))
+    s = load_snap_data(n, snappath=PATH_CR, snapbase=SNAPBASE)  # to get all fields
     snaps_cr.append(s)
-    times_cr.append(snap_time_myr(s))
+    times_cr.append(calc_snap_time(s))
     print(f'  output_cr   snap {n:03d}  {times_cr[-1]:.1f} Myr')
 
 for n in range(N_CREXP):
-    o = arun.Run(snappath=PATH_CREXP, snapbase=SNAPBASE)
-    s = enrich_snap(o.loadSnap(snapnum=n))
+    s = load_snap_data(n, snappath=PATH_CREXP, snapbase=SNAPBASE)  # to get all fields
     snaps_crex.append(s)
-    times_crex.append(snap_time_myr(s))
-    print(f'  output_crexps snap {n:03d}  {times_crex[-1]:.1f} Myr')
+    times_crex.append(calc_snap_time(s))
+    print(f'  output_uni snap {n:03d}  {times_crex[-1]:.1f} Myr')
 
 for n in range(N_NOCR):
-    o = arun.Run(snappath=PATH_NOCR, snapbase=SNAPBASE)
-    s = enrich_snap(o.loadSnap(snapnum=n))
+    s = load_snap_data(n, snappath=PATH_NOCR, snapbase=SNAPBASE)  # to get all fields
     snaps_nocr.append(s)
-    times_nocr.append(snap_time_myr(s))
-    print(f'  output2     snap {n:03d}  {times_nocr[-1]:.1f} Myr')
+    times_nocr.append(calc_snap_time(s))
+    print(f'  output_obli     snap {n:03d}  {times_nocr[-1]:.1f} Myr')
 
 # ── one combined figure per quantity ─────────────────────────────────────────
 for field, label, log_y in QUANTITIES:
@@ -245,7 +200,7 @@ for field, label, log_y in QUANTITIES:
         ax_diff.set_axis_off()
 
     fig.suptitle(f'Evolution comparison — {label}', fontsize=13)
-    plt.tight_layout()
+    # plt.tight_layout()
 
     fname = os.path.join(OUTDIR, f'evolution_{field}.png')
     fig.savefig(fname, dpi=150, bbox_inches='tight')

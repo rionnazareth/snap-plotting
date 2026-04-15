@@ -12,7 +12,7 @@ if __name__ == "__main__":
     m_p       = 1.66e-24
 
     ## Set up figure & axis grid
-    fig = plt.figure(figsize=(8,8))
+    fig = plt.figure(figsize=(10,10))
 
     outer = gridspec.GridSpec(1, 1, wspace=0.2)
     quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace=0, wspace=0)
@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     image_proj = 'side'     # side or top viewing angle
     plotsize =  0.5   # Size in kpc of one panel
-    proj_on = False     # Whether to do a slice or a projection
+    proj_on = False    # Whether to do a slice or a projection
     proj_fact = 0.01         # Fraction of plotsize to project through
     res = 1024               # Pixels per panel
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         quad_ax_loc = [0,1],
         var = 'cren',
         weighted = 'rho', # or None
-        ranges = [5e-5,1e4],
+        ranges = [2e-4,1e4],
         cmap = 'cividis',
         logplot = True,
         divzero = False,
@@ -189,16 +189,44 @@ if __name__ == "__main__":
     cb_BR = fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal')#, label=r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$')
     # cb_BR.set_ticks(cb_BR.get_ticks()[1:])
 
-    quad_TL.text(0.05, 0.95, r'$T/T_0$', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=12)
-    quad_BL.text(0.05, 0.05, r'$n_\mathrm{H}/n_0$', transform=quad_BL.transAxes, color='black', ha='left', va='bottom', weight='bold',fontsize=12)
-    quad_TR.text(0.95, 0.95, r'$E_\mathrm{CR}/E_0$', transform=quad_TR.transAxes, color='white', ha='right', va='top', weight='bold',fontsize=12)
-    quad_BR.text(0.95, 0.05, r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$', transform=quad_BR.transAxes, color='white', ha='right', va='bottom', weight='bold',fontsize=12)
+    quad_TL.text(0.05, 0.95, r'$T/T_0$', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=15)
+    quad_BL.text(0.05, 0.05, r'$n_\mathrm{H}/n_0$', transform=quad_BL.transAxes, color='black', ha='left', va='bottom', weight='bold',fontsize=15)
+    quad_TR.text(0.95, 0.95, r'$E_\mathrm{CR}/E_0$', transform=quad_TR.transAxes, color='white', ha='right', va='top', weight='bold',fontsize=15)
+    quad_BR.text(0.95, 0.05, r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$', transform=quad_BR.transAxes, color='black', ha='right', va='bottom', weight='bold',fontsize=15)
    
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}', fontsize=12, y=1.002)
-    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/{}_snap{}_{}.pdf'.format(v,number_string(snap_num),image_proj),dpi=300)
+    
+    # Add an inset to the bottom right quadrant
+    y_idx = 2 if image_proj == 'side' else 1
+
+    center_zoom = [0.6, 0.5, 0.06] # x, y, z
+    box_zoom = [0.05, 0.05]
+    
+    axins = quad_BR.inset_axes([center_zoom[0] - box_zoom[0]/2.+0.25, center_zoom[y_idx] - box_zoom[1]/2.+0.15, 0.4, 0.4])
+
+    s.axplot_Aweightedslice(axins,
+                    value='xcr', weights='rho', cmap='Blues', colorbar=False, logplot=True, vrange=[2e-4,1e3],
+                    center=center_zoom, box=box_zoom, res=res,
+                    proj=proj_on, proj_fact=proj_fact, axes=[0,2] if image_proj == 'side' else [0,1]
+                )
+    
+    # Set the limits of the inset axes to match the zoom box
+    axins.set_xlim(center_zoom[0] - box_zoom[0]/2., center_zoom[0] + box_zoom[0]/2.)
+    # Depending on image_proj, the y-axis of the plot corresponds to either y or z
+    axins.set_ylim(center_zoom[y_idx] - box_zoom[1]/2., center_zoom[y_idx] + box_zoom[1]/2.)
+    
+    # Add shocks circle to the inset
+    axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_shock, color='magenta', fill=False, linestyle='--', linewidth=1.5))
+    axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_nocr, color='maroon', fill=False, linestyle=':', linewidth=1.5))
+
+    if revshock:
+        axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_reverse, color='cyan', fill=False, linestyle='--', linewidth=1.5))
+
+
+    axins.set_xticks([])
+    axins.set_yticks([])
+    # axins.autoscale(False)
+    quad_BR.indicate_inset_zoom(axins, edgecolor="gray")
+
+    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()
-    # s.plot_Aweightedslice(
-    #                 value='xcr', weights='rho', cmap='Blues', colorbar=False, logplot=True, vrange=[2e-4,1e3],
-    #                 center=[0.32, 0.32, 0.32], box=[0.1,0.1], res=res,
-    #                 newfig=False, proj=proj_on, proj_fact=proj_fact
-    #             )

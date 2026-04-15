@@ -15,415 +15,212 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 
 import sys
+import os
 sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
 import arepo_run as arun
 import gadget
+import scienceplots
+from tests.lib import *
 
-gamma    = 5./3
-unit_m   = 1.989e43
-unit_v   = 1.e5
-unit_l   = 3.09567758e21
-unit_t   = unit_l/unit_v
-unit_rho = unit_m/unit_l**3
+plt.style.use(['science'])
 
-def number_string(snap):
-    snap_str = str(snap)
-    if len(snap_str) < 3:
-        snap_str = (3-len(snap_str))*str(0)+snap_str
-    return snap_str
+if __name__ == "__main__":
+    print('Running snap plotting script...')
+    slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
+    numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
+    BASE_PATH = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+    SNAPBASE = 'snap_'
+    SNAPFILETYPE = '.hdf5'
 
-def calc_snap_time(s):
-    Length_unit = s.header['UnitLength_in_cm'] * u.cm
-    Velocity_unit = s.header['UnitVelocity_in_cm_per_s'] * u.cm / u.s
-    Time_unit = Length_unit / Velocity_unit
-    Time = s.header['Time'] * Time_unit
-    Time_Myr = Time.to(u.Myr)
-    return Time_Myr
+    GAMMA = 5/3 # heat capaticy ratio for monatomic gas
+    HYDROGENMASS_FRAC = 0.76
 
+    # k_B = const.k_B.to((u.Msun*1e10)*(u.km/u.s)**2/u.K).value
+    # m_p = const.m_p.to(u.Msun*1e10).value
 
-def get_vranges(snap_nums,snappath=None,quant='temp',flag_excl=True):
-    minval = np.empty(0)
-    maxval = np.empty(0)
-
-    for i_s, num in enumerate(snap_nums):
-        s = load_snap_data(num,snappath=output_path,snapbase=SNAPBASE)
-        quant_data = s.data[quant]
-        if flag_excl: #Exclude the BOLA cells
-            quant_data = quant_data[s.data['flag']==0]
-        minval = np.append(minval, quant_data.min())
-        maxval = np.append(maxval, quant_data.max())
-        #print('\n',s.data[quant].min(),s.data[quant].max())
-
-    ranges = [minval.min(),maxval.max()]
-    print('Min/max values at snaps:',minval.argmin(),minval.argmax())
-    return ranges
+    k_B       = 1.381e-16
+    m_p       = 1.66e-24
 
 
-def calc_mu(data,ionisation='ionised'):
-    X = HYDROGENMASS_FRAC
 
-    if 'metals' in data.keys():
-        Z = data['metals'] ## metal mass fraction
-    else:
-        Z = 0
+    ## Set up figure & axis grid
+    fig = plt.figure(figsize=(8,8))
 
-    if 'ne' in data.keys():
-        ne = data['ne']
-        print('\t>>Electrion density found, calculating mu...')
-    elif ionisation == 'ionised':
-        ne = np.ones_like(data['u']) * 2 / (1+X)
-        print('\t>>Electron density not found, asssuming default ionisation: {}'.format(ionisation))
-    elif ionisation =='neutral':
-        ne = np.zeros_like(data['u'])
-        print('\t>>Electron density not found, asssuming default ionisation: {}'.format(ionisation))
-
-    mu = 4 / (X * (3 + 4*ne) + 1 - Z)
-    return mu
-
-def calc_T(data):
-    temp = data['u']*(unit_v)**2 * (GAMMA - 1) * data['mu']  * m_p  / k_B
-    print(temp)
-    return temp
-
-def calc_P(data):
-    pressure = (data['rho']) * (data['u']) * (GAMMA - 1)
-    print('pressure:', pressure)
-    return pressure
-
-def calc_CRP(data, gamma_cr=4/3):
-    pressure = (data['rho']) * (data['cren']) * (gamma_cr - 1)
-    print('CR pressure:', pressure)
-    return pressure
-
-def rho_to_n_cm(data):
-    n_cms = data['rho'] * ((u.kpc**-3).to(u.cm**-3) / (m_p * data['mu']))
-    return n_cms
-
-def rho_to_nH_cm(data):
-    nH_cm = HYDROGENMASS_FRAC * data['rho'] * (u.kpc**-3).to(u.cm**-3) / m_p
-    return nH_cm
+    outer = gridspec.GridSpec(1, 1, wspace=0.2)
+    quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace=0, wspace=0)
 
 
-def calc_cooling(data, header, verbose=False):
-    if 'coor' in data:
-        ## Setup unit system
-        length_unit = header['UnitLength_in_cm'] * u.cm
-        velocity_unit = header['UnitVelocity_in_cm_per_s'] * u.cm / u.s
-        mass_unit = header['UnitMass_in_g'] * u.g
-        time_unit = length_unit / velocity_unit
-
-        ## s.data['coor'] is the cooling rate per unit mass, in simulations units
-
-        cool_time =  (time_unit * data['u'] / data['coor']).to(u.Myr)  ## Comes from io_fields.c
-        cool_rate_mass = (data['coor'] * velocity_unit**3 / length_unit).to(u.erg / u.s / u.g)
-
-        ratefact = (HYDROGENMASS_FRAC / (m_p * mass_unit))**2 * data['rho'] * mass_unit / length_unit**3
-        cool_rate_volume = (cool_rate_mass/ratefact).to(u.erg/u.s * u.cm**3)
-
-        return cool_time.value, cool_rate_mass.value, cool_rate_volume.value
-    
-    else:
-        if verbose:
-            print('\t>>Field COOR not found, skipping cooling calculation...')
-        return None, None, None
-    
-
-def calc_bremsstrahlung(data,T_cut=None,gaunt_factor=1, Z_factor = 1):
-    # See Sijacki & Springel 06, also Bennett
-    # Bolometric X-ray (all bands)
-
-    xray = np.zeros_like(data['temp'])
-
-    vols = (data['vol']*u.kpc**3).to(u.cm**3).value
-    xray =  1.4e-27 * gaunt_factor * Z_factor**2 * data['temp']**(0.5) * data['ne'] * data['nH_cm']**2 * (1-data['nh']) * vols
-
-    if T_cut is not None:
-        xray[data['temp']<T_cut] = 0
-
-    return xray
 
 
-def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbose=False,default_ionisation='ionised'):
-    
-    snapname = snappath + snapbase + number_string(num)
-    print('\n>Loading snap',snapname+SNAPFILETYPE)
 
-    o = arun.Run(snappath=snappath,snapbase=SNAPBASE)
-    s = o.loadSnap(snapnum=num)
+    ## Set global figure options
 
-    s.data['mu'] = calc_mu(s.data,ionisation=default_ionisation)
-    s.data['temp'] = calc_T(s.data)
+    image_proj = 'top'      # side or top viewing angle; top view shows azimuthal curvature
+    plotsize =  1  # Size in kpc of one panel
+    proj_on = False        # Whether to do a slice or a projection
+    proj_fact = 0.1         # Fraction of plotsize to project through
+    res = 1024               # Pixels per panel
 
-    if 'pres' not in s.data:
-        s.data['pres'] = calc_P(s.data)
+    ## Load the snapshot
+    v = 'rho'
+    c = 'gnuplot'
+    r = [1e-1,1e2]
+    snap_num = 0
+    output_path = BASE_PATH + '/output_uni/'
 
-    if 'wind' not in s.data and 'pass' in s.data:
-        s.data['wind'] = s.data['pass']
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    add_vec = True
 
-    s.data['n_dens_cm'] = rho_to_n_cm(s.data)
+    norm = True
+    def norm_by_snap0(norm):
+        s0 = load_snap_data(0,snappath=output_path,snapbase=SNAPBASE)
+        if norm:
+            for data_key in ['rho', 'nH_cm', 'pres','bflds','cren']:
+                # Avoid division by zero and cast to float to avoid UFuncTypeError
+                div = s0.data[data_key].mean() if s0.data[data_key].mean() != 0 else 1e-10
+                if data_key == 'cren': div = s0.data['u'].mean()  # Normalize CR energy by initial internal energy, not CR energy:
+                s.data[data_key] = s.data[data_key].astype(float) / div
+                print(f'Normalized {data_key} by dividing by max value from snap 0: {np.median(s0.data[data_key])}')
+    ## Plot each axis quadrent
+    # Top left
 
-    s.data['nH_cm'] = rho_to_nH_cm(s.data)
-    xx = s.data['pos'][:,0] - s.boxsize/2.
-    yy = s.data['pos'][:,1] - s.boxsize/2.
-    zz = s.data['pos'][:,2] - s.boxsize/2.
-    rr = np.sqrt(xx**2 + yy**2 + zz**2)
-    s.data['r'] = rr
-
-    vx = s.data['vel'][:,0]
-    vy = s.data['vel'][:,1]
-    vz = s.data['vel'][:,2]
-    s.data['vrad'] = (vx * xx/rr + vy * yy/rr + vz * zz/rr)
-
-    s.data['speed']     = np.linalg.norm(s.data['vel'], axis=1)
-
-    s.data['energdens'] = s.data['u']*s.data['rho']
-
-    s.data['bfldenerg'] = (np.linalg.norm(s.data['bfld'], axis=1))**2 /(2*s.data['rho'])
-    # print((s.data['bfldenerg'] == np.zeros_like(s.data['bfldenerg'])).all())
-    if 'cren' in s.data:
-        s.data['crpres'] = calc_CRP(s.data)
-        
-    
-
-    if 'coor' in s.data:
-        s.data['cool_time'], s.data['cool_rate_mass'], s.data['cool_rate_volume'] = calc_cooling(s.data, s.header)
-    else:
-        print('\t>>Field COOR not found, skipping cooling calculation...')
- 
-    if 'ne' in s.data:
-        s.data['ne_cm'] = s.data['ne'] * s.data['nH_cm']
-  
-        s.data['xray'] = calc_bremsstrahlung(s.data)
-
-    return s
-
-
-def plot_quad_axis(
+    # Here we're passing the same snap each time, but you could give each one a different snapshot to make e.g. a time series image
+    norm_by_snap0(norm)
+    quad_TL, map_TL = plot_quad_axis(
         s,
         fig,
         quad_subs,
         quad_ax_loc = [0,0],
-        var = 'temp',
+        var = v,
         weighted = 'rho', # or None
-        ranges = None,
-        cmap = 'viridis',
+        ranges = r,
+        cmap = c,
         logplot = True,
         divzero = False,
         divzero_centre = None,
+        colorbar=False,
+        image_proj = image_proj,
+        proj_on = proj_on,
+        proj_fact = proj_fact,
+        res = res,
+        numthreads = numthreads,
+        plotsize = plotsize,
+        add_vec=add_vec,
+        vec_val='bfld'
+        )
 
-        image_proj = 'side',
-        proj_on = True,
-        proj_fact = 0.1,
-        res = 258,
-        plotsize = 2,
-        colorbar = True,
-        ):
+    output_path = BASE_PATH + '/output_azi/'
+
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    # Bottom left
+    norm_by_snap0(norm)
+    quad_BL, map_BL = plot_quad_axis(
+        s,
+        fig,
+        quad_subs,
+        quad_ax_loc = [1,0],
+        var = v,
+        weighted = 'rho', # or None
+        ranges = r,
+        cmap = c,
+        logplot = True,
+        divzero = False,
+        divzero_centre = None,
+        colorbar=False,
+        image_proj = image_proj,
+        proj_on = proj_on,
+        proj_fact = proj_fact,
+        res = res,
+        numthreads = numthreads,
+        plotsize = plotsize,
+        add_vec=add_vec,
+        vec_val='bfld'
+        )
+
+    # snap_num = 1
+    output_path = BASE_PATH + '/output_hb/'
+
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    # Bottom right
+    norm_by_snap0(norm)
+    quad_BR, map_BR = plot_quad_axis(
+        s,
+        fig,
+        quad_subs,
+        quad_ax_loc = [1,1],
+        var = v,
+        weighted = 'rho', # or None
+        ranges = r,
+        cmap = c,
+        logplot = True,
+        divzero = False,
+        divzero_centre = None,
+        colorbar=False,
+        image_proj = image_proj,
+        proj_on = proj_on,
+        proj_fact = proj_fact,
+        res = res,
+        numthreads = numthreads,
+        plotsize = plotsize,
+        add_vec=add_vec,
+        vec_val='bfld'
+        )
+
+    # Top right
+    output_path = BASE_PATH + '/output_turb/'
+
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    norm_by_snap0(norm)
+    quad_TR, map_TR = plot_quad_axis(
+        s,
+        fig,
+        quad_subs,
+        quad_ax_loc = [0,1],
+        var = v,
+        weighted = 'rho', # or None
+        ranges = r,
+        cmap = c,
+        logplot = True,
+        divzero = False,
+        divzero_centre = None,
+        colorbar=False,
+        image_proj = image_proj,
+        proj_on = proj_on,
+        proj_fact = proj_fact,
+        res = res,
+        numthreads = numthreads,
+        plotsize = plotsize,
+        add_vec=add_vec,
+        vec_val='bfld'
+        )
 
 
-    ## Set up subplot
-    quad_ax = plt.Subplot(fig, quad_subs[quad_ax_loc[0],quad_ax_loc[1]])
-    fig.add_subplot(quad_ax)
 
-    ## Calculate centre and set up viewing angle
-    x_pol = -1 + 2*quad_ax_loc[1]
-    y_pol = 1 - 2*quad_ax_loc[0]
+    # plt.show()
 
-    x_centre = s.boxsize/2 + x_pol*plotsize/2
-    y_centre = s.boxsize/2 + y_pol*plotsize/2
-    z_centre = s.boxsize/2
+    # Adjust figure to make room for colorbars
+    fig.subplots_adjust(bottom=0.14, top=0.88)
 
-    if image_proj == 'side':
-        plot_centre = [x_centre, z_centre, y_centre]
-        axes_sum = [0,2]
-    elif image_proj == 'top':
-        plot_centre = [x_centre, y_centre, z_centre]
-        axes_sum = [0,1]
-
-    print(plot_centre)
-
-
-    ## Call gadget_snap from arepo-snap-utils to plot in given axis
-
-    if weighted is None:
-        s.axplot_Aslice(quad_ax,value=var,cmap=cmap,colorbar=colorbar,divzero=divzero,divzero_centre=divzero_centre,vrange=ranges,axes=axes_sum,logplot=logplot,box=[plotsize,plotsize],center=plot_centre,proj=proj_on,proj_fact=proj_fact,res=res)
-    else:
-        s.axplot_Aweightedslice(quad_ax,value=var,weights=weighted,cmap=cmap,colorbar=colorbar,divzero=divzero,divzero_centre=divzero_centre,vrange=ranges,axes=axes_sum,logplot=logplot,box=[plotsize,plotsize],center=plot_centre,proj=proj_on,proj_fact=proj_fact,res=res)
-
-    ## Set axis labels relative to centre of box
-
-    quad_ax.set_xticklabels(quad_ax.get_xticks()-s.boxsize/2)
-    quad_ax.set_yticklabels(quad_ax.get_yticks()-s.boxsize/2)
-
-    ## Tidy up axis edges and labels
-
-    if quad_ax_loc[0] == 0:
-        quad_ax.spines['bottom'].set_visible(False)
-        quad_ax.set_xticks([])
-    if quad_ax_loc[0] == 1:
-        quad_ax.spines['top'].set_visible(False)
-    if quad_ax_loc[1] == 1:
-        quad_ax.spines['left'].set_visible(False)
-        quad_ax.set_yticks([])
-
-    # Get the last QuadMesh (pcolormesh) from the axis - this is the mappable
-    mappable = quad_ax.collections[-1] if quad_ax.collections else None
+    # Add colorbars - top row at the top, bottom row at the bottom
+    cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.02, 
+                           quad_TL.get_position().width, 0.02])
+    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label='uni B=1e-6G', ticklocation='top')
     
-    return quad_ax, mappable
-
-
-BASE_PATH = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
-SNAPBASE = 'snap_'
-SNAPFILETYPE = '.hdf5'
-
-GAMMA = 5/3 # heat capaticy ratio for monatomic gas
-HYDROGENMASS_FRAC = 0.76
-
-# k_B = const.k_B.to((u.Msun*1e10)*(u.km/u.s)**2/u.K).value
-# m_p = const.m_p.to(u.Msun*1e10).value
-
-k_B       = 1.381e-16
-m_p       = 1.66e-24
-
-
-
-## Set up figure & axis grid
-fig = plt.figure(figsize=(8,8))
-
-outer = gridspec.GridSpec(1, 1, wspace=0.2)
-quad_subs = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=outer[0], hspace=0, wspace=0)
-
-
-
-
-
-## Set global figure options
-
-image_proj = 'side'     # side or top viewing angle
-plotsize =  50        # Size in kpc of one panel
-proj_on = False        # Whether to do a slice or a projection
-proj_fact = 0.1         # Fraction of plotsize to project through
-res = 1024               # Pixels per panel
-
-## Load the snapshot
-
-snap_num = 5
-output_path = BASE_PATH + '/output_cr/'
-
-s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-snap_time = calc_snap_time(s)
-
-## Plot each axis quadrent
-# Top left
-
-# Here we're passing the same snap each time, but you could give each one a different snapshot to make e.g. a time series image
-
-quad_TL, map_TL = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [0,0],
-    var = 'pres',
-    weighted = 'rho', # or None
-    ranges = [1e-1,1e1],
-    cmap = 'gnuplot',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-
-# Bottom left
-
-quad_BL, map_BL = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [1,0],
-    var = 'crpres',
-    weighted = 'rho', # or None
-    ranges = [1e-1,1e1],
-    cmap = 'viridis',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-# snap_num = 3
-output_path = BASE_PATH + '/output_crexps/'
-
-s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-snap_time = calc_snap_time(s)
-# Bottom right
-
-quad_BR, map_BR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [1,1],
-    var = 'crpres',
-    weighted = 'rho', # or None
-    ranges = [1e-1,1e1],
-    cmap = 'viridis',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-# Top right
-
-quad_TR, map_TR = plot_quad_axis(
-    s,
-    fig,
-    quad_subs,
-    quad_ax_loc = [0,1],
-    var = 'pres',
-    weighted = 'rho', # or None
-    ranges = [1e-1,1e1],
-    cmap = 'gnuplot',
-    logplot = True,
-    divzero = False,
-    divzero_centre = None,
-    colorbar=False,
-    image_proj = image_proj,
-    proj_on = proj_on,
-    proj_fact = proj_fact,
-    res = res,
-    plotsize = plotsize
-    )
-
-
-
-# plt.show()
-
-# Adjust figure to make room for colorbars
-# fig.subplots_adjust(bottom=0.12, top=0.88)
-
-# Add colorbars - top row at the top, bottom row at the bottom
-cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.07, 
-                        quad_TL.get_position().width, 0.02])
-fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label='Pressure (w/o diff)')
-fig.colorbar(map_BL, ax=quad_BL, orientation='horizontal',  fraction=0.046, label='CR Pressure (w/o diff)')
-cax_TR = fig.add_axes([quad_TR.get_position().x0+0.02, quad_TR.get_position().y1 + 0.07, 
-                        quad_TR.get_position().width, 0.02])
-fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label='Pressure ')
-fig.colorbar(map_BR, ax=quad_BR, orientation='horizontal', fraction=0.046, label='CR Pressure')
-fig.savefig('plots_new/diffcr_snap{}_{}.png'.format(number_string(snap_num),image_proj),dpi=300)
-# plt.show()
+    cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.08, 
+                           quad_BL.get_position().width, 0.02])
+    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label='azi B=1e-6G')
+    
+    cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
+                           quad_TR.get_position().width, 0.02])
+    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label='Turb B=1e-6G', ticklocation='top')
+    
+    cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.08, 
+                           quad_BR.get_position().width, 0.02])
+    fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal', label='uni B=1e-3G')
+    fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}', fontsize=12, y=1.002)
+    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/cool/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    # plt.show()

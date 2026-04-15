@@ -6,6 +6,7 @@
 
 #media files
 *.mp4
+*.gif
 *.png
 *.eps
 *.jpg

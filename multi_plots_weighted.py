@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import arepo_run as arun
+from tests.lib import *
 
 # plt.rcParams.update({
 #     "text.usetex": True,         # use LaTeX for all text
@@ -12,35 +13,12 @@ import arepo_run as arun
 
 # --- helper to process 1 snapshot in parallel ---
 def process_snapshot(args):
-    i, value, axes_plot, center, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights = args
-    
-    o  = arun.Run(snappath=snap_path,
-                  snapbase="snap_")
+    i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights = args
 
-    s  = o.loadSnap(snapnum=i)
+    s  = load_snap_data(i, snappath=snap_path, snapbase="snap_")
 
-    gamma = 5./3
-    unit_v = 1e5
+    center = s.header['BoxSize'] / 2.0
 
-    # ---- derived quantities ----
-    if value == 'temp':
-        kB = 1.381e-16
-        mP = 1.66e-24
-        xH = 0.76
-        meanMolecularWeight = 0.6*mP #4*mP / (1 + 3*xH + 4*xH * s.data['ne'])
-        s.data['temp'] = (gamma - 1) * meanMolecularWeight / kB * s.data['u'] * unit_v**2
-
-    if value == 'speed':
-        s.data['speed'] = np.linalg.norm(s.data['vel'], axis=1)
-
-    if value == 'vortmag':
-        s.data['vortmag'] = np.linalg.norm(s.data['vort'], axis=1)
-
-    if value == 'grar_rho':
-        s.data['grar_rho'] = np.linalg.norm(s.data['grar'], axis=1) / s.data['rho']
-    
-    if value == 'energdens':
-        s.data['energdens'] = s.data['u']*s.data['rho']
     # ---- render slice to an offscreen figure ----
     fig = plt.figure(figsize=(5,4))
     ax = fig.add_subplot(111)
@@ -84,7 +62,7 @@ def process_snapshot(args):
     return img
 
 def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',snap_path='', axes_plot=[0,2], 
-                  vrange=False, center=[500,500,500], box=[1000,1000], 
+                  vrange=False, box=[1000,1000], 
                   res=1024, proj=False, proj_fact=0.5, cmap='gnuplot', weighted=False, weights='rho'):
     """
     Create a multi-panel figure from multiple snapshots.
@@ -134,7 +112,7 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
 
     # Prepare argument list for all snapshots
     args_list = [
-        (i, value, axes_plot, center, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights)
+        (i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights)
         for i in range(snap_offset, snap_offset+num_snaps+1)
     ]
 
@@ -166,12 +144,16 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
     outfile = os.path.join(save_path, f"multi_{value}.png")
     plt.savefig(outfile, dpi=600, bbox_inches="tight")
 
+save_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/temp/'
+snap_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/output_cool/'
 # Example usage - unweighted (original)
-plot_multiple('mach', num_proc=32, save_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/plotting/plots', 
-              snap_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2',
-               num_snaps=9, snap_offset=0, axes_plot=[0, 2], box=[100,100], proj=False, proj_fact=0.3, 
-               cmap='gnuplot', weighted=True, weights='rho')
+plot_multiple('ecth', 
+              num_proc=76, save_path=save_path, 
+              snap_path=snap_path,
+               num_snaps=10, snap_offset=0, axes_plot=[0, 2], box=[1,1], proj=False, proj_fact=0.3, 
+               cmap='copper', weighted=True, weights='rho',vrange=(1e-4,1e2))
 
+print(f"Plots saved in {save_path}")
 # Example usage - density-weighted
 # plot_multiple('temp', num_proc=32, save_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/plotting/plots', 
 #               snap_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output_refined',

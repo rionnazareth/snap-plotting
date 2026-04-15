@@ -62,6 +62,7 @@ QUANTITIES = [
     ('speed',     r'Speed |v| [code km/s]',       True,  '#b2182b', '#ef8a62', '#878787'),
     ('mach',      r'Mach number',                 True,  '#543005', '#bf812d', '#bababa'),
     ('vrad',      r'Radial velocity [code km/s]', False, '#313695', '#fdae61', '#e0e0e0'),
+    ('bflden',    r'B-field energy density [code]', True, '#000004', '#9970ab', '#4d4d4d')
 ]
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -72,13 +73,24 @@ def snap_time_myr(s):
 
 
 def enrich_snap(s):
+    unit_l = s.header['UnitLength_in_cm']
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+    unit_rho = s.header['UnitMass_in_g'] / unit_l**3
+
     mu = 0.6 * m_p
     s.data['temp']  = (GAMMA - 1) * mu / k_B * s.data['u'] * unit_v**2
     s.data['speed'] = np.linalg.norm(s.data['vel'], axis=1)
     if 'cren' in s.data:
         s.data['crpres'] = (GAMMA_CR - 1) * s.data['rho'] * s.data['cren']
+
+    unit_b = np.sqrt(4 * np.pi * unit_rho * unit_v**2)
+
     if 'bfld' in s.data:
-        s.data['bfldenerg'] = np.sum(s.data['bfld']**2, axis=1) / (2 * s.data['rho'])
+        # B-field specific energy (energy per unit mass in code units -> cgs)
+        b_cgs = s.data['bfld'] * unit_b
+        rho_cgs = s.data['rho'] * unit_rho
+        s.data['bflden'] = np.sum(b_cgs**2, axis=1) / (8 * np.pi * rho_cgs)
+        s.data['bflds'] = np.linalg.norm(s.data['bfld'], axis=1)
     pos  = s.data['pos']
     ctr  = np.array([s.boxsize / 2] * 3)
     diff = pos - ctr
