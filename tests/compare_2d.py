@@ -32,19 +32,20 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import astropy.units as u
 import arepo_run as arun
+from lib import *
 
 # ── physical constants ────────────────────────────────────────────────────────
-BASE_PATH  = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
+BASE_PATH  = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
 SNAPBASE   = 'snap_'
 GAMMA      = 5./3
 GAMMA_CR   = 4./3
 XH         = 0.76          # hydrogen mass fraction
 k_B        = 1.381e-16     # erg/K
 m_p        = 1.66e-24      # g
-unit_v     = 1.e5          # cm/s
+unit_v     = 1.651077e6#1.e5
 
 # output directory (next to this script)
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rhov/2d')
 os.makedirs(OUTDIR, exist_ok=True)
 
 # ── derived-field calculator ──────────────────────────────────────────────────
@@ -81,23 +82,25 @@ def snap_time_myr(s):
 # ── quantity catalogue ────────────────────────────────────────────────────────
 # (field_key,  row_label,            cmap,       log?,  vrange_or_None)
 QUANTITIES = [
-    ('rho',       r'Density [$\rho$]',           'inferno',  True,  [1e-7, 1e-2]),
-    ('pres',      r'Thermal Pressure',            'gnuplot',  True,  [1e-4, 1e1 ]),
-    ('crpres',    r'CR Pressure',                 'viridis',  True,  [1e-4, 1e1 ]),
-    ('temp',      r'Temperature [K]',             'plasma',   True,  [1e3,  1e7 ]),
-    ('speed',     r'Speed [code units]',          'cividis',  True,  [1e-3, 1e3 ]),
-    ('bfldenerg', r'Mag. Energy Density',         'Blues_r',  True,  None        ),
+    ('rho',       r'Density [$\rho$]',           'inferno',  True,  [1e-2, 1e1]),
+    ('pres',      r'Thermal Pressure',            'gnuplot',  True,  [1e-1,1e4]),
+    ('crpres',    r'CR Pressure',                 'viridis',  True,  [1e-6,1]),
+    ('temp',      r'Temperature [K]',             'plasma',   True,  [1e3,1e9]),
+    ('speed',     r'Speed [code units]',          'cividis',  False,  [0, 600]),
+    ('vrad',      r'Radial Velocity [code units]', 'magma',    False, [0, 600]),
+    # ('bfldenerg', r'Mag. Energy Density',         'Blues_r',  True,  None        ),
 ]
 
 # ── plotting settings ─────────────────────────────────────────────────────────
-PLOTSIZE = 50       # kpc per panel half-width
+PLOTSIZE = 0.75       # kpc per panel half-width
 RES      = 512      # pixels per panel
 AXES_XZ  = [0, 2]  # project onto x-z plane (side view)
 
-# Snapshots present in both runs
-PATH_CR    = BASE_PATH + '/output_cr/'
-PATH_CREXP = BASE_PATH + '/output_crexps/'
-COMMON_SNAPS = range(6)   # snaps 000–005 exist in both
+# Snapshots present in all runs
+PATH_CR    = BASE_PATH + '/old/output_cr/'
+PATH_CREXP = BASE_PATH + '/old/output_crinc10/'
+PATH_CRRED = BASE_PATH + '/old/output_crred10/'
+COMMON_SNAPS = range(4)   # snaps 000–003 exist in both
 
 # ── main loop ─────────────────────────────────────────────────────────────────
 # Panel geometry
@@ -109,22 +112,24 @@ PANEL_IN = 5.0   # inches per square panel
 for snap_num in COMMON_SNAPS:
     print(f'Processing snapshot {snap_num:03d} ...')
 
-    s_cr   = load_snap(PATH_CR,    snap_num)
-    s_crex = load_snap(PATH_CREXP, snap_num)
+    s_cr   = load_snap_data(snap_num, PATH_CR, snapbase=SNAPBASE,norm=True)
+    s_crex = load_snap_data(snap_num, PATH_CREXP, snapbase=SNAPBASE,norm=True)
+    s_crred= load_snap_data(snap_num, PATH_CRRED, snapbase=SNAPBASE,norm=True)
     t_cr   = snap_time_myr(s_cr)
     t_crex = snap_time_myr(s_crex)
+    t_crred= snap_time_myr(s_crred)
 
     n_qty = len(QUANTITIES)
 
-    # Figure: 2 square panels + thin colorbar column, one row per quantity
-    fig_w = PANEL_IN * 2 + 1.4    # ~11.4 inches wide
+    # Figure: 3 square panels + thin colorbar column, one row per quantity
+    fig_w = PANEL_IN * 3 + 1.4    # ~16.4 inches wide
     fig_h = PANEL_IN * n_qty + 1.2
     fig = plt.figure(figsize=(fig_w, fig_h))
 
     gs = gridspec.GridSpec(
-        n_qty, 3,
+        n_qty, 4,
         figure=fig,
-        width_ratios=[1, 1, 0.08],   # wider colorbar column (was 0.05 → invisible)
+        width_ratios=[1, 1, 1, 0.08],   # wider colorbar column (was 0.05 → invisible)
         hspace=0.10,                  # less gap between rows → taller panels → less vertical compression
         wspace=0.06,
         left=0.07, right=0.96,
@@ -132,8 +137,9 @@ for snap_num in COMMON_SNAPS:
     )
 
     fig.suptitle(
-        f'Snap {snap_num:03d}   |   No diffusion: {t_cr:.1f} Myr'
-        f'   |   With diffusion: {t_crex:.1f} Myr',
+        f'Snap {snap_num:03d}   |   rho: {t_cr:.1f} Myr'
+        f'   |   rho*10: {t_crex:.1f} Myr'
+        f'   |   rho/10: {t_crred:.1f} Myr',
         fontsize=13,
     )
 
@@ -142,16 +148,18 @@ for snap_num in COMMON_SNAPS:
     for row, (field, label, cmap, logplot, vrange) in enumerate(QUANTITIES):
         ax_cr   = fig.add_subplot(gs[row, 0])
         ax_crex = fig.add_subplot(gs[row, 1])
-        ax_cb   = fig.add_subplot(gs[row, 2])
+        ax_crred= fig.add_subplot(gs[row, 2])
+        ax_cb   = fig.add_subplot(gs[row, 3])
 
         # Column headers on first row only
         if row == 0:
-            ax_cr.set_title('output_cr  (no CR diffusion)',       fontsize=10)
-            ax_crex.set_title('output_crexps  (with CR diffusion)', fontsize=10)
+            ax_cr.set_title('output_cr  $\\rho = \\rho_0$',       fontsize=10)
+            ax_crex.set_title(r'output_crinc10  $\rho = \rho_0 \times 10$', fontsize=10)
+            ax_crred.set_title(r'output_crred10  $\rho = \rho_0 / 10$', fontsize=10)
 
         last_mappable = None
 
-        for ax, s in [(ax_cr, s_cr), (ax_crex, s_crex)]:
+        for ax, s in [(ax_cr, s_cr), (ax_crex, s_crex), (ax_crred, s_crred)]:
             if field not in s.data:
                 ax.text(0.5, 0.5, f'{field}\nnot available',
                         ha='center', va='center', transform=ax.transAxes, fontsize=9)

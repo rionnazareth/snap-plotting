@@ -29,8 +29,11 @@ if __name__ == "__main__":
     v = 'temp'
     c = 'viridis'
     r = [1e5,1e9]
-    snap_num = 10
-    output_path = BASE_PATH + '/old/output_cr600/'
+    snap_num = 5
+    output_path = BASE_PATH + '/old/output_crred10/'
+
+    slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
+    numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
 
@@ -67,7 +70,8 @@ if __name__ == "__main__":
         res = res,
         plotsize = plotsize,
         add_vec=add_vec,
-        vec_val='bfld'
+        vec_val='bfld',
+        numthreads=numthreads
         )
 
     # output_path = BASE_PATH + '/output_lb/'
@@ -96,7 +100,8 @@ if __name__ == "__main__":
         res = res,
         plotsize = plotsize,
         add_vec=add_vec,
-        vec_val='bfld'
+        vec_val='bfld',
+        numthreads=numthreads
         )
 
     # Bottom right
@@ -120,7 +125,8 @@ if __name__ == "__main__":
         res = res,
         plotsize = plotsize,
         add_vec=add_vec,
-        vec_val='bfld'
+        vec_val='bfld',
+        numthreads=numthreads
         )
 
     # Top right
@@ -148,7 +154,8 @@ if __name__ == "__main__":
         res = res,
         plotsize = plotsize,
         add_vec=add_vec,
-        vec_val='bfld'
+        vec_val='bfld',
+        numthreads=numthreads
         )
     for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
         ax.set_xticks([])
@@ -195,38 +202,39 @@ if __name__ == "__main__":
     quad_BR.text(0.95, 0.05, r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$', transform=quad_BR.transAxes, color='black', ha='right', va='bottom', weight='bold',fontsize=15)
    
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}', fontsize=12, y=1.002)
-    
-    # Add an inset to the bottom right quadrant
-    y_idx = 2 if image_proj == 'side' else 1
+    inset = False
+    if inset:
+        # Add an inset to the bottom right quadrant
+        y_idx = 2 if image_proj == 'side' else 1
 
-    center_zoom = [0.6, 0.5, 0.06] # x, y, z
-    box_zoom = [0.05, 0.05]
-    
-    axins = quad_BR.inset_axes([center_zoom[0] - box_zoom[0]/2.+0.25, center_zoom[y_idx] - box_zoom[1]/2.+0.15, 0.4, 0.4])
+        center_zoom = [0.6, 0.5, 0.06] # x, y, z
+        box_zoom = [0.05, 0.05]
+        
+        axins = quad_BR.inset_axes([center_zoom[0] - box_zoom[0]/2.+0.25, center_zoom[y_idx] - box_zoom[1]/2.+0.15, 0.4, 0.4])
 
-    s.axplot_Aweightedslice(axins,
-                    value='xcr', weights='rho', cmap='Blues', colorbar=False, logplot=True, vrange=[2e-4,1e3],
-                    center=center_zoom, box=box_zoom, res=res,
-                    proj=proj_on, proj_fact=proj_fact, axes=[0,2] if image_proj == 'side' else [0,1]
-                )
-    
-    # Set the limits of the inset axes to match the zoom box
-    axins.set_xlim(center_zoom[0] - box_zoom[0]/2., center_zoom[0] + box_zoom[0]/2.)
-    # Depending on image_proj, the y-axis of the plot corresponds to either y or z
-    axins.set_ylim(center_zoom[y_idx] - box_zoom[1]/2., center_zoom[y_idx] + box_zoom[1]/2.)
-    
-    # Add shocks circle to the inset
-    axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_shock, color='magenta', fill=False, linestyle='--', linewidth=1.5))
-    axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_nocr, color='maroon', fill=False, linestyle=':', linewidth=1.5))
+        s.axplot_Aweightedslice(axins,
+                        value='xcr', weights='rho', cmap='Blues', colorbar=False, logplot=True, vrange=[2e-4,1e3],
+                        center=center_zoom, box=box_zoom, res=res,
+                        proj=proj_on, proj_fact=proj_fact, numthreads=numthreads, axes=[0,2] if image_proj == 'side' else [0,1]
+                    )
+        
+        # Set the limits of the inset axes to match the zoom box
+        axins.set_xlim(center_zoom[0] - box_zoom[0]/2., center_zoom[0] + box_zoom[0]/2.)
+        # Depending on image_proj, the y-axis of the plot corresponds to either y or z
+        axins.set_ylim(center_zoom[y_idx] - box_zoom[1]/2., center_zoom[y_idx] + box_zoom[1]/2.)
+        
+        # Add shocks circle to the inset
+        axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_shock, color='magenta', fill=False, linestyle='--', linewidth=1.5))
+        axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_nocr, color='maroon', fill=False, linestyle=':', linewidth=1.5))
 
-    if revshock:
-        axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_reverse, color='cyan', fill=False, linestyle='--', linewidth=1.5))
+        if revshock:
+            axins.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_reverse, color='cyan', fill=False, linestyle='--', linewidth=1.5))
 
 
-    axins.set_xticks([])
-    axins.set_yticks([])
-    # axins.autoscale(False)
-    quad_BR.indicate_inset_zoom(axins, edgecolor="gray")
+        axins.set_xticks([])
+        axins.set_yticks([])
+        # axins.autoscale(False)
+        quad_BR.indicate_inset_zoom(axins, edgecolor="gray")
 
     fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

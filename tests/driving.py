@@ -46,7 +46,7 @@ PATH_NOCR = BASE_PATH + '/old/output_homo/'
 PATH_CR   = BASE_PATH + '/old/output_cr600/'
 N_SNAPS   = 3
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clean')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'driv')
 os.makedirs(OUTDIR, exist_ok=True)
 
 from lib import *
@@ -151,14 +151,14 @@ def find_density_shell(snaps, times, r_range, nbins, tol=1e-3):
 
         # left = 0
         # right = idx
-        shell_t = r[right] #- r[left]
+        _, shell_t = find_shell_radius(s)#r[right] #- r[left]
         p_r_dot = 4*np.pi*r**2*rho*(vrad)**2
         p_r = mass*vrad
         # if n==2:
         #     plt.plot(r, rho, label='rho')
         #     plt.plot(r[left:right+1], rho[left:right+1], label='rho_limited')
         #     plt.legend()
-        avg_rho = np.nanmean(e_int[left:right+1])#np.nanmean(p_r_dot[left:right+1])
+        avg_rho = np.sum(p_r)#np.nanmean(p_r_dot[left:right+1])
         rho_shell.append(avg_rho)
         t_arr.append(t)
         shell_t_arr.append(shell_t)
@@ -207,10 +207,13 @@ p_dot_cr   = (rho_cr_arr * unit_p) / unit_t#(t_cr_arr * myr_to_s)
 e_nocr = (rho_nocr_arr * unit_e) / (t_nocr_arr * myr_to_s)
 e_cr   = (rho_cr_arr * unit_e) / (t_cr_arr * myr_to_s)
 
+p_nocr = (rho_nocr_arr * unit_p) / (t_nocr_arr * myr_to_s)
+p_cr   = (rho_cr_arr * unit_p) / (t_cr_arr * myr_to_s)
+
 for ax in axes:
-    ax.plot(shell_t_nocr_arr, e_nocr / L_AGN, '^:', color='maroon',
+    ax.plot(shell_t_nocr_arr, p_nocr / (L_AGNc), '^:', color='maroon',
             lw=2, label='no CRs (Hydro only)')
-    ax.plot(shell_t_cr_arr,   e_cr / L_AGN,   'o-', color='steelblue',
+    ax.plot(shell_t_cr_arr,   p_cr / (L_AGNc),   'o-', color='steelblue',
             lw=2, label='CRs included')
     
     ax.set_xlabel(r'$R_{sh}$ [kpc]', fontsize=11)
@@ -226,7 +229,7 @@ ax_log.set_yscale('log')
 # ax_log.set_title('Density shell radius vs time (log–log)')
 
 fig.suptitle('Evolution of density shell position', fontsize=13)
-plt.tight_layout()
+# plt.tight_layout()
 fname = os.path.join(OUTDIR, 'e_int.png')
 fig.savefig(fname, dpi=150, bbox_inches='tight')
 plt.close(fig)

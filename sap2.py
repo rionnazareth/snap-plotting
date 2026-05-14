@@ -62,26 +62,34 @@ if __name__ == "__main__":
     res = 1024               # Pixels per panel
 
     ## Load the snapshot
-    v = 'vrad'
-    c = 'cividis'
-    r = [1e1,1e4]
-    snap_num = 10
-    
+    v = 'xcr'
+    c = 'vanimo'
+    r = [1e-2,1]
+    snap_num = 1
+    output_path = BASE_PATH + '/rho_vary/5/'
+
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
     add_vec = False
     logplot = True
 
-    
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+    unit_l = s.header['UnitLength_in_cm'] 
+    unit_m = s.header['UnitMass_in_g']
+    unit_t = unit_l / unit_v
+    unit_rho = unit_m / unit_l**3
+    unit_pres = unit_rho * (unit_v**2)
 
     norm = True
     cdis = False
     def norm_by_snap0(norm):
         s0 = load_snap_data(0,snappath=output_path,snapbase=SNAPBASE)
         if norm:
-            for data_key in ['rho', 'nH_cm', 'pres', 'speed','temp']:#
+            for data_key in ['rho', 'nH_cm', 'pres', 'cren', 'speed','temp', 'crpres','bflden', 'bfldpres', 'wind']:#
                 # Avoid division by zero and cast to float to avoid UFuncTypeError
                 div = np.median(s0.data[data_key]) if s0.data[data_key].mean() != 0 else 1e-10
                 if data_key == 'cren': div = np.median(s0.data['u'])  # Normalize CR energy by initial internal energy, not CR energy:
-                if data_key == 'crpres': div = np.median(s0.data['pres'])  # Normalize CR pressure by initial thermal pressure, not CR pressure
+                if data_key == 'crpres': div = 1#/unit_pres#np.median(s0.data['pres'])  # Normalize CR pressure by initial thermal pressure, not CR pressure
                 if data_key == 'speed': div = 1e5/unit_v # speed in kms
                 s.data[data_key] = s.data[data_key].astype(float) / div
                 print(f'Normalized {data_key} by dividing by max value from snap 0: {np.median(s0.data[data_key])}')
@@ -91,17 +99,7 @@ if __name__ == "__main__":
 
     ## Plot each axis quadrent
     # Top left
-    output_path = BASE_PATH + '/new/output_cnocr/'
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
-
-    unit_v = s.header['UnitVelocity_in_cm_per_s']
-    unit_l = s.header['UnitLength_in_cm'] 
-    unit_m = s.header['UnitMass_in_g']
-    unit_t = unit_l / unit_v
-    unit_rho = unit_m / unit_l**3
-    
     # Here we're passing the same snap each time, but you could give each one a different snapshot to make e.g. a time series image
     norm_by_snap0(norm)
     quad_TL, map_TL = plot_quad_axis(
@@ -127,12 +125,12 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    output_path = BASE_PATH + '/new/output_cbf/'
-
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    # output_path = BASE_PATH + '/rho_vary/5/'
+    # snap_num = 1
+    # s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    # snap_time = calc_snap_time(s)
     # Bottom left
-    norm_by_snap0(norm)
+    # norm_by_snap0(norm)
     quad_BL, map_BL = plot_quad_axis(
         s,
         fig,
@@ -156,8 +154,8 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    # snap_num = 1
-    output_path = BASE_PATH + '/new/output_cbcr/'
+    snap_num = 1
+    output_path = BASE_PATH + '/rho_vary/0.5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
     snap_time = calc_snap_time(s)
@@ -187,11 +185,13 @@ if __name__ == "__main__":
         )
 
     # Top right
-    # output_path = BASE_PATH + '/output_cturb/'
+    # snap_num = 1
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
-    norm_by_snap0(norm)
+    # output_path = BASE_PATH + '/old/output_crred10/'
+
+    # s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    # snap_time = calc_snap_time(s)
+    # norm_by_snap0(norm)
     quad_TR, map_TR = plot_quad_axis(
         s,
         fig,
@@ -225,20 +225,21 @@ if __name__ == "__main__":
     # Add colorbars - top row at the top, bottom row at the bottom
     cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.02, 
                            quad_TL.get_position().width, 0.02])
-    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label=r'hydro', ticklocation='top')
+    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label=r'$\rho = \rho_0$ ', ticklocation='top')
     
     cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.08, 
                            quad_BL.get_position().width, 0.02])
-    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'hydro+B')
+    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'$\rho = \rho_0$')
     
     cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
                            quad_TR.get_position().width, 0.02])
-    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'hydro+B+cr', ticklocation='top')
+    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'$\rho = \rho_0 / 10$', ticklocation='top')
     
     cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.08, 
                            quad_BR.get_position().width, 0.02])
-    fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal', label=r'hydro+B+cr')
+    fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal', label=r'$\rho = \rho_0 /10$')
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$P_\\mathrm{{CR}} / P_\\mathrm{{th}}$', fontsize=12, y=1.002)
-    fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$n_\\mathrm{{H}} / n_\\mathrm{{0}}$', fontsize=12, y=1.002)
-    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/beta/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$n_\\mathrm{{H}} / n_\\mathrm{{0}}$', fontsize=12, y=1.002)
+    fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$P_\\mathrm{{CR}}$ dyne cm$^{-2}$', fontsize=12, y=1.002)
+    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/rhov2/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

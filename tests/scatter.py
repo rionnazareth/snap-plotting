@@ -12,7 +12,7 @@ fig, ax = plt.subplots(1, 2, figsize=(10, 5), dpi=150)
 snapbase = 'snap_'
 snapnum  = 10
 
-snappath = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old/output_cr600/'
+snappath = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old/output_cr/'
 s_cr = load_snap_data(snapnum, snappath=snappath, snapbase=snapbase)
 
 snappath = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old/output_homo/'
@@ -55,7 +55,7 @@ shell_end = r[right]
 shell_cr_start = r_cr[left_cr]
 shell_cr_end = r_cr[right_cr]
 
-snappath = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old/output_homo/'
+snappath = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old/output_cr/'
 s0 = load_snap_data(0, snappath=snappath, snapbase=snapbase)
 rho_0 = s0.data['rho'].mean()
 pres_0 = s0.data['pres'].mean()
@@ -98,15 +98,16 @@ mask_cr &= (s_cr.data['r'] >= rad_wind)
 # mask &=  (s.data['wind'] > 1e-5)
 # mask_cr&= (s_cr.data['wind'] > 1e-5)  
 
-vmin = 1e-4
+vmin = 1e-2
 vmax = 1e2
-sc_cr = ax[0].scatter(rho_cr[mask_cr], temp_cr[mask_cr], s=0.1, c=s_cr.data['ecth'][mask_cr], cmap='copper', alpha=0.1, norm=LogNorm(vmin=vmin, vmax=vmax))
+val = 'ecth'
+sc_cr = ax[0].scatter(rho_cr[mask_cr], temp_cr[mask_cr], s=0.1, c=s_cr.data[val][mask_cr], cmap='vanimo', alpha=0.1, norm=LogNorm(vmin=vmin, vmax=vmax))
 cbar = fig.colorbar(sc_cr, ax=ax[0])
 cbar.set_label(r'$E_{\rm CR}/E_{\rm th}$', fontsize=11)
 cbar.solids.set_alpha(1)
 # cbar.draw_all()
-# ax[0].scatter(rho_nocr[mask], temp_nocr[mask], s=0.1, color="#4CD4D4", alpha=0.01)
-# ax[0].scatter([], [], s=20, color="#4CD4D4", label='Without CR', alpha=1.0)
+ax[0].scatter(rho_nocr[mask], temp_nocr[mask], s=0.1, color="#4CD4D4", alpha=0.01)
+ax[0].scatter([], [], s=20, color="#4CD4D4", label='Without CR', alpha=1.0)
 ax[0].set_xlim((1e-3, 30))
 ax[0].set_ylim((1e1, 4e9))
 
@@ -115,7 +116,7 @@ box_zoom = [1, 1]
 proj_on = False
 proj_fact = 0.1
 s_cr.axplot_Aweightedslice(ax[1],
-                    value='ecth', weights='rho', cmap='copper', colorbar=False, logplot=True, vrange=(vmin, vmax),
+                    value=val, weights='rho', cmap='vanimo', colorbar=False, logplot=True, vrange=(vmin, vmax),
                     center=center, box=box_zoom, res=1024,
                     proj=proj_on, proj_fact=proj_fact, axes=[0,2]
                 )
@@ -165,4 +166,4 @@ ax[0].set_ylabel(r'$T [K]$', fontsize=14)
 
 fig.tight_layout()
 
-plt.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/tempvsrho_comp.png', dpi=300)
+plt.savefig(f'/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/meh/crdiff_snapno{snapnum}.png', dpi=300)

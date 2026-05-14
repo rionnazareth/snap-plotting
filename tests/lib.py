@@ -14,6 +14,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
+
 GAMMA      = 5./3
 GAMMA_CR   = 4./3
 k_B        = 1.381e-16
@@ -148,17 +149,25 @@ def calc_bremsstrahlung(data,T_cut=None,gaunt_factor=1, Z_factor = 1):
     return xray
 
 
-def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbose=False,default_ionisation='ionised'):
+def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbose=False,default_ionisation='ionised',norm=False, ic=False):
     
     snapname = snappath + snapbase + number_string(num)
     print('\n>Loading snap',snapname)
 
-    o = arun.Run(snappath=snappath,snapbase=snapbase)
-    s = o.loadSnap(snapnum=num)
+    if not ic:
+        o = arun.Run(snappath=snappath,snapbase=snapbase)
+        s = o.loadSnap(snapnum=num)
+        unit_v = s.header['UnitVelocity_in_cm_per_s']
+        unit_l = s.header['UnitLength_in_cm'] 
+        unit_m = s.header['UnitMass_in_g']
+    else:
+        import gadget_snap as gsnap
+        s = gsnap.gadget_snapshot(filename=snappath, hdf5=True)
+        unit_v =1.651077e6
+        unit_l = 3.0857e21
+        unit_m = 1.9885e43
 
-    unit_v = s.header['UnitVelocity_in_cm_per_s']
-    unit_l = s.header['UnitLength_in_cm'] 
-    unit_m = s.header['UnitMass_in_g']
+
     unit_t = unit_l / unit_v
     unit_rho = unit_m / unit_l**3
 
@@ -197,16 +206,19 @@ def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbo
         # B-field specific energy (energy per unit mass in code units -> cgs)
         b_cgs = s.data['bfld'] * unit_b
         rho_cgs = s.data['rho'] * unit_rho
-        s.data['bflden'] = np.sum(b_cgs**2, axis=1) / (8 * np.pi * rho_cgs)
+        s.data['bflden'] = np.sum(b_cgs**2, axis=1) / (8 * np.pi * rho_cgs)/(unit_v)**2  # Convert to energy per unit mass in code units    
         s.data['bflds'] = np.linalg.norm(s.data['bfld'], axis=1)
-        s.data['xb'] = (s.data['bflden'] * rho_cgs)/ (s.data['pres']*(unit_b)**2)
+        s.data['bfldpres'] = s.data['rho'] * s.data['bflden']
+        s.data['xb'] = (s.data['bfldpres'])/ (s.data['pres'])
+        s.data['beta'] = 1/s.data['xb']
     if 'cren' in s.data:
         s.data['crpres'] = calc_CRP(s.data)
         s.data['xcr'] = s.data['crpres'] / s.data['pres']
         s.data['crendens'] = s.data['cren'] * s.data['rho']
         s.data['ecth'] = s.data['cren'] / s.data['u']
-        
     
+    if 'xb' in s.data and 'xcr' in s.data:
+        s.data['xbcr'] = s.data['xb'] / s.data['xcr']
 
     if 'coor' in s.data:
         s.data['cool_time'], s.data['cool_rate_mass'], s.data['cool_rate_volume'] = calc_cooling(s.data, s.header)
@@ -217,6 +229,15 @@ def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbo
         s.data['ne_cm'] = s.data['ne'] * s.data['nH_cm']
   
         s.data['xray'] = calc_bremsstrahlung(s.data)
+    
+    if norm:
+        s0 = o.loadSnap(snapnum=0)
+        for data_key in [k for k in s0.data.keys() if k != 'pos']:  # Don't normalize positions
+            # Avoid division by zero and cast to float to avoid UFuncTypeError
+            div = np.median(s0.data[data_key]) if np.median(s0.data[data_key]) != 0 else 1e-10
+            if data_key == 'cren': div = np.median(s0.data['u'])  # Normalize CR energy by initial internal energy, not CR energy:
+            s.data[data_key] = s.data[data_key] / div
+            print(f'Normalized {data_key} by dividing by median value: {div}')
 
     return s
 
@@ -434,8 +455,8 @@ def plot_quad_axis(
             u_v = sampled_B[:, axes_sum[0]]
             v_v = sampled_B[:, axes_sum[1]]
 
-            quad_ax.quiver(x_pos, y_pos, u_v, v_v, color='gray',
-                        alpha=0.8, scale=None, pivot='mid', headwidth=3, headlength=4)
+            # quad_ax.quiver(x_pos, y_pos, u_v, v_v, color='gray',
+            #             alpha=0.8, scale=None, pivot='mid', headwidth=3, headlength=4)
 
             
             
@@ -477,9 +498,13 @@ def plot_quad_axis(
             #     linewidth=0.5,
             #     arrowsize=0.7,
             #     zorder=6)
+
+            # Use a smoother seed texture instead of pure white noise
+            from scipy.ndimage import gaussian_filter
+            seed = gaussian_filter(np.random.rand(*U.shape), sigma=1.5)    
             
             print(quad_ax.get_xlim(), quad_ax.get_ylim())
-            lic_img = lic.lic(U.T, V.T, length=50)
+            lic_img = lic.lic(U.T, V.T, seed=seed, length=100, contrast=True)
             
             quad_ax.imshow(
                 lic_img.T,
@@ -493,6 +518,7 @@ def plot_quad_axis(
 
             quad_ax.set_xlim(xlim)
             quad_ax.set_ylim(ylim)
+
     return quad_ax, mappable
 
 def find_shock_radius(s, r_range=(1e-3,1), nbins=500):
@@ -512,5 +538,110 @@ def find_shock_radius(s, r_range=(1e-3,1), nbins=500):
     mach_copy[max(0, idx-left):min(len(mach_copy), idx+right+1)] = np.nan  # Exclude the forward shock region
     idx_reverse = np.nanargmax(mach_copy)
     r_reverse_shock = r[idx_reverse]
-    
+
+    if r_shock < r_reverse_shock:
+        r_shock, r_reverse_shock = r_reverse_shock, r_shock  # Ensure r_shock is the larger radius (forward shock)
+        
     return r_shock, r_reverse_shock
+
+def find_shell_radius(s):
+    # Select cells where the wind tracer is greater than 0.5
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+    mask = s.data['wind'] > 0.5 
+    wind_r = s.data['r'][mask]
+    
+    # Handle the case where no cells match the criteria
+    if len(wind_r) == 0:
+        return np.nan, np.nan
+        
+    # Calculate the 95th (2σ) and 99.7th (3σ) percentiles of the radial distances
+    r_shell_l = np.percentile(wind_r, 95)
+    r_shell_u = np.percentile(wind_r, 99.7)
+    
+    return r_shell_l, r_shell_u
+
+def find_Rcool(snappath, snapnum, L_AGN=1e45, v_w = 1e4):
+    s = load_snap_data(snapnum, snappath=snappath, snapbase='snap_')
+    s0 = load_snap_data(0, snappath=snappath, snapbase='snap_')
+
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+
+        # Normalisation constants
+    eps0  = 0.05
+    L0    = 1e45   # erg/s
+    n0    = 1.0    # cm^-3
+    t0    = 1.0    # Myr
+
+    c = 3e5  # Speed of light in km/s
+    epsilon = 0.5 * (v_w / c) 
+    n_H = np.nanmedian(s0.data['nH_cm'])  # Pre-shock hydrogen number density in cm^-3, from initial snapshot
+    t = calc_snap_time(s)  # Time in Myr
+    t_s = t*u.Myr.to(u.s)  # Time in seconds
+
+    # Define R in kpc
+    Rdotsh = (3/5)*(epsilon / eps0)**(1/5) \
+    * (L_AGN   / L0)**(1/5) \
+    * (n_H     / n0)**(-1/5) \
+    * (t       / t0)**(-2/5) # in kpc/Myr
+
+    r_shell_l, r_shell_u = find_shell_radius(s)
+    Rdotsh = (3/5)* r_shell_u / (t/t0)# In kpc, using the upper shell radius as a proxy for shock radius
+
+    factor = (1 * u.kpc / u.Myr).to(u.km / u.s)
+    Rdotsh_kms = Rdotsh * factor.value  # Convert to km/s
+
+    # # Select cells where the cooling time is less than 1 Myr
+    # mask = (s.data['wind'] > 0.5) & (s.data['vrad']*unit_v / 1e5  > 10)
+    # Rdotsh = s.data['vrad'][mask]
+    # Rdotsh_kms = np.nanmean(np.abs(Rdotsh))*unit_v / 1e5  # cm s^-1 -> km s^-1
+
+    n0 = np.nanmedian(s0.data['n_dens_cm']/calc_mu(s0.data))  # Pre-shock density in cm^-3
+
+
+    # Free-expansion cooling radius (R_c^ff) in kpc:
+    r_cff_kpc = 3.8 * (Rdotsh_kms / 1e3)**2 * (n0)**(-1)
+
+    print(f'R_c^ff = {r_cff_kpc:.3f} kpc  (Rdotsh = {Rdotsh_kms:.2f} km/s, n0 = {n0:.3e} cm^-3)')
+
+    # r_cool_comp = 0.3 * (L_AGN / 1e45) * (Rdotsh_kms / 1e3)**(-1)
+    # r_cool = r_cool_pc / 1e3  # kpc
+    
+    return r_cff_kpc, Rdotsh_kms, n0
+
+def calculate_R_free(beta, tau, b, L_AGN, rho_0):
+    """
+    Calculate R_free (free expansion radius) based on equation (15).
+    
+    Parameters:
+    -----------
+    beta : float
+        Beta parameter (dimensionless)
+    tau : float
+        Optical depth parameter (dimensionless)
+    b : float
+        Parameter b (dimensionless)
+    L_AGN : float
+        AGN luminosity in erg s^(-1)
+    n_0 : float
+        Number density in cm^(-3)
+    
+    Returns:
+    --------
+    R_free : float
+        Free expansion radius in parsecs (pc)
+    
+    Formula:
+    --------
+    R_free ≈ 10 * (β / 0.1)^(-1) * (τ / b)^(1/2) * 
+             (L_AGN / (10^45 erg s^(-1)))^(1/2) * 
+             (n_0 / cm^(-3))^(-1/2) pc
+    """
+    c = 3e10  # speed of light in cm s^(-1)
+    
+    M_dot_W = (tau * L_AGN) / (beta * c**2)
+    v_W = beta * c
+    
+    t_free = np.sqrt((3 / (4 * np.pi * b)) * (M_dot_W / (rho_0 * v_W**3)))
+    R_free = v_W * t_free / (3.086e18)  # Convert cm to pc
+    
+    return R_free, t_free

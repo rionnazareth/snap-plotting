@@ -13,11 +13,30 @@ from tests.lib import *
 
 # --- helper to process 1 snapshot in parallel ---
 def process_snapshot(args):
-    i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights = args
+    i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights, num_proc = args
 
     s  = load_snap_data(i, snappath=snap_path, snapbase="snap_")
 
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+    unit_l = s.header['UnitLength_in_cm'] 
+    unit_m = s.header['UnitMass_in_g']
+    unit_t = unit_l / unit_v
+    unit_rho = unit_m / unit_l**3
+
+    norm = False
+    s0 = load_snap_data(0,snappath=snap_path,snapbase="snap_")
+    if norm:
+        for data_key in ['rho', 'nH_cm', 'pres',  'speed','temp', 'wind','vrad']:#
+            # Avoid division by zero and cast to float to avoid UFuncTypeError
+            div = np.median(s0.data[data_key]) if s0.data[data_key].mean() != 0 else 1e-10
+            if data_key == 'cren': div = np.median(s0.data['u'])  # Normalize CR energy by initial internal energy, not CR energy:
+            if data_key == 'crpres': div = np.median(s0.data['pres'])  # Normalize CR pressure by initial thermal pressure, not CR pressure
+            if data_key == 'speed' or data_key == 'vrad': div = 1e5/unit_v # speed in kms
+            s.data[data_key] = s.data[data_key].astype(float) / div
+            print(f'Normalized {data_key} by dividing by max value from snap 0: {np.median(s0.data[data_key])}')
+    
     center = s.header['BoxSize'] / 2.0
+    print(center)
 
     # ---- render slice to an offscreen figure ----
     fig = plt.figure(figsize=(5,4))
@@ -29,13 +48,13 @@ def process_snapshot(args):
             value=value, weights=weights, cmap=cmap, colorbar=True,
             center=center, box=box, res=res,
             logplot=True, vrange=vrange, minimum=1e-10, 
-            newfig=False, proj=proj, proj_fact=proj_fact
+            newfig=False, proj=proj, proj_fact=proj_fact, numthreads=num_proc
         )
     else:
         s.plot_Aslice(
             value=value, axes=axes_plot, cmap=cmap, colorbar=True,
             center=center, box=box, res=res,
-            logplot=True, vrange=vrange, minimum=1e-10, newfig=False, proj=proj, proj_fact=proj_fact
+            logplot=True, vrange=vrange, minimum=1e-10, newfig=False, proj=proj, proj_fact=proj_fact, numthreads=num_proc
         )
 
     # Customize axes
@@ -112,7 +131,7 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
 
     # Prepare argument list for all snapshots
     args_list = [
-        (i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights)
+        (i, value, axes_plot, box, res, proj, proj_fact, vrange, cmap, snap_path, weighted, weights, num_proc)
         for i in range(snap_offset, snap_offset+num_snaps+1)
     ]
 
@@ -144,14 +163,18 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
     outfile = os.path.join(save_path, f"multi_{value}.png")
     plt.savefig(outfile, dpi=600, bbox_inches="tight")
 
-save_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/temp/'
-snap_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/output_cool/'
+save_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/hb/'
+snap_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/output_hb/'
+
+
 # Example usage - unweighted (original)
-plot_multiple('ecth', 
-              num_proc=76, save_path=save_path, 
+slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
+numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
+plot_multiple('nH_cm', 
+              num_proc=numthreads, save_path=save_path, 
               snap_path=snap_path,
-               num_snaps=10, snap_offset=0, axes_plot=[0, 2], box=[1,1], proj=False, proj_fact=0.3, 
-               cmap='copper', weighted=True, weights='rho',vrange=(1e-4,1e2))
+               num_snaps=10, snap_offset=0, axes_plot=[0, 2], box=[1, 1], proj=False, proj_fact=0.3, 
+               cmap='jet', weighted=True, weights='rho',vrange=None)
 
 print(f"Plots saved in {save_path}")
 # Example usage - density-weighted

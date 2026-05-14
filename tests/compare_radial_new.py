@@ -22,6 +22,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import astropy.units as u
 import arepo_run as arun
+import scienceplots
+
+plt.style.use(['science'])
 
 # ── constants & paths ─────────────────────────────────────────────────────────
 BASE     = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
@@ -33,15 +36,24 @@ m_p        = 1.66e-24
 unit_v     = 1.651077e6#1.e5
 
 RUNS = {
-    'no CRs no B':   {'path': BASE + '/old/output_homo/',   'has_cr': False, 'ls': '-',  'c': 'lightcoral'},
-    'only CRs no B': {'path': BASE + '/output_cr/',     'has_cr': True,  'ls': '--', 'c': 'steelblue'},
-    r'with cooling only CRs':      {'path': BASE + '/output_cool/',    'has_cr': True,  'ls': '--',  'c': 'lightgreen'},
-    r'$10^{-6} \mathrm{G}$':      {'path': BASE + '/output_uni/',    'has_cr': True,  'ls': ':',  'c': 'dimgrey'},
-    r'$\kappa = 3\times 10^{26} \mathrm{cm}^2/\mathrm{s}$':     {'path': BASE + '/output_test/',   'has_cr': True,  'ls': '-.', 'c': 'steelblue'},
+    # 'no CRs no B':   {'path': BASE + '/old/output_homo/',   'has_cr': False, 'ls': '-',  'c': 'lightcoral'},
+    # 'only CRs no B': {'path': BASE + '/old/output_cr/',     'has_cr': True,  'ls': '--', 'c': 'steelblue'},
+    # r'with cooling only CRs':      {'path': BASE + '/output_cool/',    'has_cr': True,  'ls': '--',  'c': 'lightgreen'},
+    # r'no cooling':      {'path': BASE + '/old/output_cr600/',    'has_cr': True,  'ls': '--',  'c': 'cyan'},
+#     r'$\kappa = 3\times 10^{26} \mathrm{cm}^2/\mathrm{s}$':     {'path': BASE + '/output_test/',   'has_cr': True,  'ls': '-.', 'c': 'maroon'},
+    # r'$\rho = \rho_0$': {'path': BASE + '/old/output_cr/', 'has_cr': True,  'has_cr': True,  'ls': '--', 'c': 'steelblue'},
+    # r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True, 'ls': '-', 'c': 'darkorange'},
+    # r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/',    'has_cr': True, 'ls': '--', 'c': 'purple'},
     # r'$10^{-3} \mathrm{G}$':     {'path': BASE + '/output_hb/', 'has_cr': True,  'ls': '-',  'c': 'darkgreen'},
+    # r'Hydro+CRs':      {'path': BASE + '/output_cool/',    'has_cr': True,  'ls': '--',  'c': 'maroon'},
+    r'Hydro only':      {'path': BASE + '/new/output_cnocr/',    'has_cr': False,  'ls': '--',  'c': 'maroon'},
+      r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
+    r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'teal'},
+  
+
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'beta')
 os.makedirs(OUTDIR, exist_ok=True)
 
 R_RANGE = (1e-3, 1)
@@ -52,13 +64,16 @@ NBINS   = 500
 QUANTITIES = [
     ('rho',       r'Density $\rho$ [code]',      False),
     ('pres',      r'Thermal pressure [code]',    True),
+    # ('bfldpres',    r'B-field pressure [code]', True),
+    ('crpres',    r'CR pressure [code]',         True),
     ('xcr',    r'CR pressure/thermal pressure [code]',         True),
     ('cren',      r'CR energy density [code]',   True),
     ('temp',         r'Temperature [K]',     True),
     ('speed',     r'Speed |v| [code km/s]',      True),
     ('mach',      r'Mach number',                True),
     ('vrad',      r'Radial velocity [code km/s]', False),
-    # ('bflden',    r'B-field energy density [code]', True),
+    ('edis',      r'Dissipated energy density [code]', True),
+    ('beta',       r'Plasma beta',                True),
     # ('bflds',     r'B-field strength [code]',         True)
 ]
 
