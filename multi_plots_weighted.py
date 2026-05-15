@@ -167,9 +167,9 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
     plt.savefig(outfile, dpi=600, bbox_inches="tight")
 
 # Example usage - unweighted (original)
-plot_multiple('mach', num_proc=32, save_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/plotting/plots', 
-              snap_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2',
-               num_snaps=9, snap_offset=0, axes_plot=[0, 2], box=[100,100], proj=False, proj_fact=0.3, 
+plot_multiple('rho', num_proc=1, save_path='/cosma8/data/dp317/dc-naza3/gasCloudNfw/snap-plotting/plots_new', 
+              snap_path='/cosma8/data/dp317/dc-naza3/homogeneous/rho_vary/0.5',
+               num_snaps=14, snap_offset=0, axes_plot=[0, 2], box=[1,1], proj=False, proj_fact=0.3, 
                cmap='gnuplot', weighted=True, weights='rho')
 
 # Example usage - density-weighted

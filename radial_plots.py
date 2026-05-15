@@ -238,14 +238,14 @@ def plot_normalized_comparison(r_bin, y1_values, y2_values,
 
 if __name__ == "__main__":
     # Example usage
-    o  = arun.Run(snappath='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output_crexps', snapbase="snap_")
-    num = 2
-    s_cr  = o.loadSnap(snapnum=num)
-    post_shock = False
-    shock_path = f'/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2/shocks_{num:03d}.hdf5'
-    radial_range = (2.5,50)  # in kpc
-    r_bin, temp_bin_cr = radial_profile(s_cr, value='speed', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
-    r_bin, mach_bin_cr = radial_profile(s_cr, value='mach', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
+    # o  = arun.Run(snappath='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output_crexps', snapbase="snap_")
+    # num = 2
+    # s_cr  = o.loadSnap(snapnum=num)
+    # post_shock = False
+    # shock_path = f'/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2/shocks_{num:03d}.hdf5'
+    # radial_range = (0,0.01)  # in kpc
+    # r_bin, temp_bin_cr = radial_profile(s_cr, value='speed', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
+    # r_bin, mach_bin_cr = radial_profile(s_cr, value='mach', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     # r_bin, vrad_bin = radial_profile(s1, value='vrad', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     # r_bin, rho_bin = radial_profile(s1, value='rho', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     
@@ -262,30 +262,33 @@ if __name__ == "__main__":
     #                                         colors=('#d62728', '#2ca02c')  # Red and green
     #                                     )
     o  = arun.Run(snappath='/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2', snapbase="snap_")
-    num = 2
+    num = 7
     s1  = o.loadSnap(snapnum=num)
     post_shock = False
     shock_path = f'/cosma8/data/dp317/dc-naza3/gasCloudNfw/output2/shocks_{num:03d}.hdf5'
-    # radial_range = (2.5, 100)  # in kpc
-    r_bin, temp_bin = radial_profile(s1, value='speed', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
-    r_bin, mach_bin = radial_profile(s1, value='mach', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
+    radial_range = (0, 0.015)  # in kpc
+    r_bin, rho_bin = radial_profile(s1, value='rho', radial_range=radial_range, nbins=5, post_shock=post_shock, shock_path=shock_path)
+    # r_bin, mach_bin = radial_profile(s1, value='mach', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     # r_bin, vrad_bin = radial_profile(s1, value='vrad', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     # r_bin, rho_bin = radial_profile(s1, value='rho', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
     
+    plt.plot(r_bin, rho_bin[0]/r_bin**2, label='1/r²', 
+            color='gray', linewidth=2.5, alpha=0.7, linestyle='--')
     plot_normalized_comparison(
                                             r_bin=r_bin,
-                                            y1_values=mach_bin_cr,
-                                            y2_values=mach_bin,
-                                            y1_label='Mach number with CR',
+                                            y1_values=rho_bin,
+                                            y2_values=np.zeros_like(rho_bin),  # Placeholder for Mach number without CR
+                                            y1_label='Density',
                                             y2_label='Mach number without CR',
                                             xlabel='Radius [kpc]',
-                                            ylabel='Mach number',
+                                            ylabel='Density (code units)',
                                             title='Comparison',
                                             logplot=True,
                                             norm=False,
                                             newfig=False,
                                             colors=("#ddae1f", "#20a8ad")  # Red and green
                                         )
+    
     # plot_normalized_comparison(
     #                                         r_bin=r_bin,
     #                                         y1_values=rho_bin,
@@ -300,4 +303,4 @@ if __name__ == "__main__":
     #                                         colors=("#9f1bb0", "#17c1db")  # Red and green
     #                                     )
 
-    plt.savefig('plots_new/radial_mach.png', dpi=300)
+    plt.savefig('/cosma8/data/dp317/dc-naza3/gasCloudNfw/snap-plotting/bolacell/radial_rho.png', dpi=300)

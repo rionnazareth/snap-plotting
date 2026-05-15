@@ -54,18 +54,18 @@ BASE     = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
 SNAPBASE = 'snap_'
 
 RUNS = {
-    'no-CR\n(output2)':         {'path': BASE + '/output2/',     'has_cr': False},
-    'CR (no diff)\n(output_cr)':  {'path': BASE + '/output_cr/',   'has_cr': True},
-    'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
+    'no-CR\n(output_fnfw)':         {'path': BASE + '/output_fnfw/',     'has_cr': False},
+    'no CR \n(output_nfw)':  {'path': BASE + '/output_nfw/',   'has_cr': False},
+    # 'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
 }
 
 COLORS = {
-    'no-CR\n(output2)':          'dimgrey',
-    'CR (no diff)\n(output_cr)':  'steelblue',
-    'CR (diff)\n(output_crexps)': 'darkorange',
+    'no-CR\n(output_fnfw)':          'dimgrey',
+    'no CR \n(output_nfw)':  'steelblue',
+    # 'CR (diff)\n(output_crexps)': 'darkorange',
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots_energy')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nfw')
 os.makedirs(OUTDIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ H_CODE = _HUBBLE_CGS * _UNIT_T_s          # Hubble / h in code
 H_CODE *= 0.7                             # NFW_h = 0.7
 
 # NFW parameters
-_NFW_C   = 7.0
+_NFW_C   = 10.0
 _NFW_M200 = 100.0      # code mass units (= 1e12 Msun)
 _NFW_Eps  = 0.01
 _NFW_DARKFRACTION = 0.844
@@ -206,94 +206,6 @@ _Rs   = _R200 / _NFW_C
 _Dc   = 200.0/3.0 * _NFW_C**3 / (np.log(1 + _NFW_C) - _NFW_C / (1.0 + _NFW_C))
 _RhoCrit = 3.0 * H_CODE**2 / (8.0 * np.pi * G_CODE)
 
-# Normalisation factor (Fac)
-def _enclosed_mass_raw(R, Fac=1.0):
-    """Arepo's enclosed_mass_nfw with Fac=1 (for calibration)."""
-    Rc = min(R, _Rs * _NFW_C)   # truncated at R200
-    eps = _NFW_Eps
-    rs = _Rs
-    term0 = -(rs**3 * (1 - eps + np.log(rs) - 2*eps*np.log(rs) +
-              eps**2 * np.log(eps * rs))) / ((eps - 1)**2)
-    term1 = (rs**3 * (rs - eps*rs - (2*eps - 1)*(Rc + rs)*np.log(Rc + rs) +
-              eps**2 * (Rc + rs) * np.log(Rc + eps*rs))) / \
-             ((eps - 1)**2 * (Rc + rs))
-    return Fac * 4 * np.pi * _RhoCrit * _Dc * (term0 + term1)
-
-# Calibrate Fac so that M_enclosed(R200) = M200
-_V200 = 10.0 * H_CODE * _R200
-_Fac_NFW = _V200**3 / (10.0 * G_CODE * H_CODE) / _enclosed_mass_raw(_R200, Fac=1.0)
-
-
-def nfw_enclosed_mass(R):
-    """Enclosed NFW mass at radius R (code units), truncated at R200."""
-    Rc = np.minimum(R, _Rs * _NFW_C)
-    eps = _NFW_Eps
-    rs = _Rs
-    term0 = -(rs**3 * (1 - eps + np.log(rs) - 2*eps*np.log(rs) +
-              eps**2 * np.log(eps * rs))) / ((eps - 1)**2)
-    term1 = (rs**3 * (rs - eps*rs - (2*eps - 1)*(Rc + rs)*np.log(Rc + rs) +
-              eps**2 * (Rc + rs) * np.log(Rc + eps*rs))) / \
-             ((eps - 1)**2 * (Rc + rs))
-    return _Fac_NFW * 4 * np.pi * _RhoCrit * _Dc * (term0 + term1) * _NFW_DARKFRACTION
-
-
-def nfw_potential_at_r(r):
-    """
-    NFW gravitational potential at radius r (scalar or array, code units).
-    Φ(r) = -G ∫_r^∞ M(<r')/r'² dr'
-    For truncated NFW (at R200), Φ(r) = -G M(<r)/r  for r >= R200
-    and for r < R200 we integrate numerically for accuracy.
-
-    Simpler and standard: Φ(r) = -G M200 / [r · g(c)] · ln(1 + r/Rs)
-    But Arepo uses the softened formula, so we do numerical integration
-    to match exactly.
-    """
-    from scipy.integrate import quad
-    r = np.atleast_1d(r).astype(float)
-    phi = np.zeros_like(r)
-    for i, ri in enumerate(r):
-        if ri <= 0:
-            phi[i] = np.nan
-            continue
-        # Φ(r) = -G ∫_r^∞ M(<r')/r'² dr'
-        # Split: [r, R200] uses enclosed_mass, beyond R200 M is constant = M(R200)
-        r200 = _Rs * _NFW_C
-        m200 = nfw_enclosed_mass(r200)
-        if ri >= r200:
-            phi[i] = -G_CODE * m200 / ri
-        else:
-            def integrand(rp):
-                return nfw_enclosed_mass(rp) / rp**2
-            val, _ = quad(integrand, ri, r200)
-            phi[i] = -G_CODE * val - G_CODE * m200 / r200
-    return phi
-
-
-def nfw_epot_snapshot(s):
-    """Compute total NFW gravitational potential energy for a snapshot.
-    E_pot = Σ m_i · Φ_NFW(r_i)
-    """
-    pos  = s.data['pos']
-    mass = s.data['mass']
-    ctr  = np.array([s.boxsize / 2.] * 3)
-    r    = np.linalg.norm(pos - ctr, axis=1)
-
-    # For many particles, vectorised integration is slow.
-    # Use the analytic NFW potential:
-    #   Φ(r) = -G · M200 / [ln(1+c) - c/(1+c)] · ln(1 + r/Rs) / r
-    # This matches the standard NFW (softening eps→0 limit).
-    # Since NFW_Eps=0.01 ≈ 0, this is an excellent approximation.
-    gc = np.log(1 + _NFW_C) - _NFW_C / (1.0 + _NFW_C)
-    M200_dark = _NFW_M200 * _NFW_DARKFRACTION
-    # For r > R200, truncate: Φ(r) = -G M200_dark / r
-    r200 = _Rs * _NFW_C
-    phi = np.where(
-            r <= r200,
-            -G_CODE * M200_dark / gc * np.log(1.0 + r / _Rs) / np.maximum(r, 1e-30),
-            -G_CODE * M200_dark / r
-        )
-    #phi = nfw_potential_at_r(r)
-    return np.sum(mass * phi)
 
 
 print(f'  NFW potential: R200 = {_R200:.2f} kpc,  Rs = {_Rs:.2f} kpc,  '
@@ -324,11 +236,6 @@ for label, cfg in RUNS.items():
 
     times_code = []
     mass_arr   = []
-    ekin_arr   = []
-    etherm_arr = []
-    ecr_arr    = []
-    epot_arr   = []
-    etot_arr   = []
 
     for i in range(n_snaps):
         try:
@@ -340,53 +247,52 @@ for label, cfg in RUNS.items():
         mass = s.data['mass']
         vel  = s.data['vel']     # (N, 3)
         u_   = s.data['u']      # specific internal energy
+        # pos  = s.data['pos']
+        # ctr  = np.array([s.boxsize / 2.] * 3)
+        # rr   = np.linalg.norm(pos - ctr, axis=1)
 
-        mtot = np.sum(mass)
-        ek = 0.5 * np.sum(mass * np.sum(vel**2, axis=1))
-        et = np.sum(mass * u_)
-
-        ec = 0.0
-        if has_cr and 'cren' in s.data:
-            ec = np.sum(mass * s.data['cren'])
-
-        ep = nfw_epot_snapshot(s)
+        mtot = np.sum(mass) #np.sum(mass[rr < _R200])  # total mass within R200 (for sanity check)
 
         times_code.append(s.header['Time'])
         mass_arr.append(mtot)
-        ekin_arr.append(ek)
-        etherm_arr.append(et)
-        ecr_arr.append(ec)
-        epot_arr.append(-ep)
-        #etot_arr.append(ek + et + ec - ep)
+
 
     snap_energy[label] = {
         'time':     np.array(times_code),
         'time_myr': code_time_to_Myr(np.array(times_code)),
-        'mass':     np.array(mass_arr),
-        'ekin':     np.array(ekin_arr),
-        'etherm':   np.array(etherm_arr),
-        'ecr':      np.array(ecr_arr),
-        'epot':     np.array(epot_arr),
-        'etotal':   np.array(ekin_arr) + np.array(etherm_arr) + np.array(epot_arr) + np.array(ecr_arr),
-        'emech':    np.array(ekin_arr) + np.array(etherm_arr) + np.array(epot_arr)
+        'mass':     np.array(mass_arr)
     }
-    print(f'  {label.replace(chr(10)," "):<35s}: {n_snaps} snaps, '
-          f'E_tot(snap0) = {snap_energy[label]["etotal"][0]:.4g},  E_pot(snap0) = {snap_energy[label]["epot"][0]:.4g} [code]')
 
 
-# ── 9a: Normalised total energy from snapshots across all runs ──
+
+# ── Parameters for Theoretical Mass Loss ──
+L_AGN = 1e47      # erg/s (placeholder)
+c_light = 2.9979e10 # cm/s
+tau = 1.0         # placeholder
+beta = 20000*unit_v/c_light        # placeholder
+
+Mdot_w_cgs = (tau / beta) * (L_AGN / c_light**2) # g/s
+Mdot_w_code = Mdot_w_cgs / (_UNIT_M / _UNIT_T) # code mass / code time
+
+
+# ── 9a: Normalised total mass from snapshots across all runs ──
 fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
-# Panel (a): E_total(t) / E_total(0) from snapshots (WITH E_pot)
+# Panel (a): M_total(t) / M_total(0) from snapshots
 for label in snap_energy:
     se = snap_energy[label]
     m0 = se['mass'][0]
     print(f'  {label.replace(chr(10)," ")}: M_total(0) = {m0:.4g} [code]')
-    print(se['mass']/m0)
-    ax.plot(se['time_myr'][2:], se['mass'][2:]/m0, 'o-', color=COLORS[label],
-                 ms=4, lw=1.5, label=label.replace('\n', ' '))
+    ax.plot(se['time_myr'], se['mass']/m0, 'o-', color=COLORS[label],
+                 ms=4, lw=1.5, label='From snapshots')
+    
+    m_expected = Mdot_w_code * se['time']
+    # ax.plot(se['time_myr'], (m_expected+m0)/m0, '--', color=COLORS[label],
+    #         alpha=0.7, label=r'Theoretical $M_\mathrm{total}(0)+\dot{{M}}\Delta t$')
+    # ax.plot(se['time_myr'], (m_expected)/1e-3, '--', color=COLORS[label],
+    #         alpha=0.7, label=r'$m_{inj}/m_{target}$')
 
-ax.axhline(1, color='k', lw=0.8, ls='--', alpha=0.5)
+# ax.axhline(1, color='k', lw=0.8, ls='--', alpha=0.5)
 ax.set_xlabel('Time [Myr]', fontsize=11)
 ax.set_ylabel(r'$M_\mathrm{total}(t)/M_\mathrm{total}(0)$', fontsize=11)
 ax.set_title(r'Total mass normalised', fontsize=11)

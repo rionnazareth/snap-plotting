@@ -54,18 +54,20 @@ BASE     = '/cosma8/data/dp317/dc-naza3/gasCloudNfw'
 SNAPBASE = 'snap_'
 
 RUNS = {
-    'no-CR\n(output2)':         {'path': BASE + '/output2/',     'has_cr': False},
-    'CR (no diff)\n(output_cr)':  {'path': BASE + '/output_cr/',   'has_cr': True},
-    'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
+    'nfw':         {'path': BASE + '/output_nfw/',     'has_cr': False},
+    'fnfw':  {'path': BASE + '/output_fnfw/',   'has_cr': False},
+    'nochange':  {'path': BASE + '/output2/',     'has_cr': False},
+    # 'CR (diff)\n(output_crexps)': {'path': BASE + '/output_crexps/', 'has_cr': True},
 }
 
 COLORS = {
-    'no-CR\n(output2)':          'dimgrey',
-    'CR (no diff)\n(output_cr)':  'steelblue',
-    'CR (diff)\n(output_crexps)': 'darkorange',
+    'nfw':           'steelblue',
+    'fnfw':          'dimgrey',
+    'nochange':      'black',
+    # 'maxt0.0001':  'steelblue',
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'plots_energy')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nfw')
 os.makedirs(OUTDIR, exist_ok=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +106,7 @@ def read_energy(run_path):
     if not os.path.exists(fpath):
         raise FileNotFoundError(f'energy.txt not found in {run_path}')
     data = np.loadtxt(fpath)
+    print(data)
     return {
         'time':   data[:, 0],
         'ekin':   data[:, 1],
@@ -274,10 +277,10 @@ def nfw_epot_snapshot(s):
     E_pot = Σ m_i · Φ_NFW(r_i)
     """
     pos  = s.data['pos']
-    mass = s.data['mass']
+    
     ctr  = np.array([s.boxsize / 2.] * 3)
     r    = np.linalg.norm(pos - ctr, axis=1)
-
+    mass = s.data['mass'][r < _R200]
     # For many particles, vectorised integration is slow.
     # Use the analytic NFW potential:
     #   Φ(r) = -G · M200 / [ln(1+c) - c/(1+c)] · ln(1 + r/Rs) / r
@@ -291,7 +294,7 @@ def nfw_epot_snapshot(s):
             r <= r200,
             -G_CODE * M200_dark / gc * np.log(1.0 + r / _Rs) / np.maximum(r, 1e-30),
             -G_CODE * M200_dark / r
-        )
+        )[r < _R200]
     #phi = nfw_potential_at_r(r)
     return np.sum(mass * phi)
 
@@ -335,10 +338,13 @@ for label, cfg in RUNS.items():
         except Exception as exc:
             print(f'    Could not load {label.replace(chr(10)," ")} snap {i}: {exc}')
             continue
+        pos  = s.data['pos']
+        ctr  = np.array([s.boxsize / 2.] * 3)
+        rr   = np.linalg.norm(pos - ctr, axis=1)
 
-        mass = s.data['mass']
-        vel  = s.data['vel']     # (N, 3)
-        u_   = s.data['u']      # specific internal energy
+        mass = s.data['mass'][rr < _R200]
+        vel  = s.data['vel'][rr < _R200]    # (N, 3)
+        u_   = s.data['u'][rr < _R200]      # specific internal energy
 
         ek = 0.5 * np.sum(mass * np.sum(vel**2, axis=1))
         et = np.sum(mass * u_)
