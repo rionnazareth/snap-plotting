@@ -6,7 +6,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import scienceplots
 
-plt.style.use(['science'])
+# plt.style.use(['science'])
 
 # ── path setup ───────────────────────────────────────────────────────────────
 sys.path.insert(0, '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting')
@@ -14,7 +14,7 @@ from lib import *
 from matplotlib.colors import LogNorm
 
 # ── simulation paths ──────────────────────────────────────────────────────────
-BASE     = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+BASE     = '/cosma8/data/dp317/dc-naza3/homogeneous'
 SNAPBASE = 'snap_'
 
 RUNS = {
@@ -43,11 +43,14 @@ RUNS = {
     #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'orange'},
 
-            r'$\rho = \rho_0$':      {'path': BASE + '/rho_vary/5/',    'has_cr': True,  'ls': '--',  'c': 'maroon', },
-    #   r'$\rho = \rho_0 \times 10$':       {'path': BASE + '/rho_vary/50/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
-    r'$\rho = \rho_0 / 10$':      {'path': BASE + '/rho_vary/0.5/',   'has_cr': True,  'ls': '-',   'c': 'teal'},
-    r'with diffusion':      {'path': BASE + '/old/output_cr/',   'has_cr': True,  'ls': '-',   'c': 'green'},
+    #         r'$\rho = \rho_0$':      {'path': BASE + '/rho_vary/5/',    'has_cr': True,  'ls': '--',  'c': 'maroon', },
+    # #   r'$\rho = \rho_0 \times 10$':       {'path': BASE + '/rho_vary/50/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
+    # r'$\rho = \rho_0 / 10$':      {'path': BASE + '/rho_vary/0.5/',   'has_cr': True,  'ls': '-',   'c': 'teal'},
+    # r'with diffusion':      {'path': BASE + '/old/output_cr/',   'has_cr': True,  'ls': '-',   'c': 'green'},
 
+        r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
+    r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
+        r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
 
     # r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True},
     # r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/', 'has_cr': True},
@@ -99,7 +102,11 @@ for label, cfg in RUNS.items():
 
     data = {k: [] for k in ['time_myr', 'ekin', 'etherm', 'ecr', 'ebfld', 'epot', 'etotal', 'fshock', 'rshock', 'rshell',value, value2, 'edis','max_mach']}
 
-    for i in range(n_snaps):
+    l = r'$\rho = \rho_0 / 10$'
+    k=0
+    if label == l:
+        k = 3
+    for i in range(k,n_snaps):
         try:
             s = load_snap_data(num=i, snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
@@ -131,7 +138,8 @@ for label, cfg in RUNS.items():
 
         ev = 0.0
         try:
-            ev = np.sum(s.data[value]>3)
+            mach = s.data['mach']
+            ev = np.sum(mach*s.data['edis'])/np.sum(s.data['edis'])
         except KeyError:
             pass
 
@@ -226,9 +234,9 @@ for label, se in snap_energy.items():
         
         # Actually maybe they want edis on the Y-axis and NO ecr/etotal.
         # Add a proxy artist for the legend to show the symbol, since scatter with a colormap often loses the legend handle
-        ax_cr.plot(se['rshell'], se['ecr'] , '--', ms=4,color=col, label=name)
+        ax_cr.plot(se['rshell'], se['ecr']/E_w , '--', ms=4,color=col, label=name)
         # sc = ax_cr.scatter(se['rshell'], se['ecr'] / E_w, c=se['edis'] / E_w, marker=sym, cmap='viridis')
-        sc = ax_cr.scatter(se['rshell'], se['ecr'] , c=col, marker=sym, cmap='viridis')#se['edis']*(unit_e/unit_t)/L_AGN
+        sc = ax_cr.scatter(se['rshell'], se['ecr'] / E_w, c=col, marker=sym, cmap='viridis')#se['edis']*(unit_e/unit_t)/L_AGN
         # if not hasattr(ax_cr, 'colorbar_added'):
         #     cvals = se['edis'] * (unit_e / unit_t) / L_AGN
         #     cvals = cvals[cvals > 0]
@@ -256,11 +264,11 @@ for label, se in snap_energy.items():
 ax_norm.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{total}(t) / E_\mathrm{wind}$', title='(a) Total energy normalised')
 ax_norm.axhline(1, color='k', ls='--', alpha=0.5)
 
-ax_cr.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{CR} $', title='(b) Dissipated Energy', xscale='log', yscale='log')
+ax_cr.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{CR} / E_\mathrm{wind} $', title='(b) Dissipated Energy', xscale='log', yscale='log')
 
 ax_parts.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{CR}/ |E_\mathrm{total,0}|$', title='(c) Energy components')
 
-ax_value.set(xlabel=r'$R_\mathrm{sh}$', ylabel=f'no. of shocked cells', title='(d)  Custom value evolution')
+ax_value.set(xlabel=r'$R_\mathrm{sh}$', ylabel=f'$\mathcal{{M}}$', title='(d)  Custom value evolution')
 
 for ax in axes:
     ax.legend(fontsize=8, framealpha=0.7)

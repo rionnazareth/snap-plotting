@@ -7,25 +7,25 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import scienceplots
 
-plt.style.use(['science'])
+# plt.style.use(['science'])
 
 # ── path setup ───────────────────────────────────────────────────────────────
 sys.path.insert(0, '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting')
 from lib import *
 
 # ── simulation paths ──────────────────────────────────────────────────────────
-BASE     = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+BASE     = '/cosma8/data/dp317/dc-naza3/homogeneous'
 SNAPBASE = 'snap_'
 
 RUNS = {
-    r'$\rho = \rho_0$ no diff': {
-        'path': BASE + '/output_cool/', 'has_cr': True,
-        'marker': 'x', 'c': 'C3'
-    },
-    r'$B= 1.855\times 10^{-5} \; \mathrm{G}$+no diff': {
-        'path': BASE + '/new/output_cbcr/', 'has_cr': True,
-        'marker': 's', 'c': 'C1'
-    },
+    # r'$\rho = \rho_0$ no diff': {
+    #     'path': BASE + '/output_cool/', 'has_cr': True,
+    #     'marker': 'x', 'c': 'C3'
+    # },
+    # r'$B= 1.855\times 10^{-5} \; \mathrm{G}$+no diff': {
+    #     'path': BASE + '/new/output_cbcr/', 'has_cr': True,
+    #     'marker': 's', 'c': 'C1'
+    # },
     # r'cooling': {
     #     'path': BASE + '/output_cool/', 'has_cr': True,
     #     'marker': 'D', 'c': 'C2'
@@ -43,13 +43,13 @@ RUNS = {
     #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':',   'c': 'orange', 'marker': 's'},
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'teal', 'marker': 'D'},
 
-    #     r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
-    # r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
-    #     r'$\rho = \rho_0$': {'path': BASE + '/old/output_cr/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+        r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
+    r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
+        r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
 
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bfield_amp')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rhov2')
 os.makedirs(OUTDIR, exist_ok=True)
 
 def _count_snaps(path):
@@ -70,9 +70,13 @@ for label, cfg in RUNS.items():
         print(f'  {label}: no snapshots found.')
         continue
 
-    data = {k: [] for k in ['time_myr', 'rshell', 'etot_w', 'etot_a', 'ecr_w', 'ecr_a', 'etot_exp', 'ecr_exp']}
+    data = {k: [] for k in ['time_myr', 'rshell', 'etot_w', 'etot_a', 'ecr_w', 'ecr_a', 'etot_exp', 'ecr_exp', 'mach_w', 'mach_a', 'edis_w', 'edis_a']}
 
-    for i in range(n_snaps):
+    l = r'$\rho = \rho_0 / 10$'
+    k=0
+    if label == l:
+        k = 3
+    for i in range(k,n_snaps):
         try:
             s = load_snap_data(num=i, snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
@@ -103,6 +107,12 @@ for label, cfg in RUNS.items():
         etot_a, ecr_a = calc_phase_energies(mask_a)
         etot_exp, ecr_exp = calc_phase_energies(mask_exp)
 
+        mach = s.data['mach']
+        mask_a &= mach>2.2
+        mask_w &= mach>2.2
+        mach_w = np.max(mach[mask_w])#np.sum(mach[mask_w]*s.data['edis'][mask_w])/np.sum(s.data['edis'][mask_w]) if np.any(mask_w) else 0.0
+        mach_a = np.max(mach[mask_a])#np.sum(mach[mask_a]*s.data['edis'][mask_a])/np.sum(s.data['edis'][mask_a]) if np.any(mask_a) else 0.0
+
         _, r_shell_u = find_shell_radius(s)
 
         data['time_myr'].append(calc_snap_time(s))
@@ -113,12 +123,16 @@ for label, cfg in RUNS.items():
         data['ecr_a'].append(ecr_a)
         data['etot_exp'].append(etot_exp)
         data['ecr_exp'].append(ecr_exp)
+        data['mach_w'].append(mach_w)
+        data['mach_a'].append(mach_a)
+        data['edis_w'].append(np.sum(s.data['edis'][mask_w]))
+        data['edis_a'].append(np.sum(s.data['edis'][mask_a]))
 
     snap_energy[label] = {k: np.array(v) for k, v in data.items()}
     print(f'  {label}: {len(data["time_myr"])} snaps loaded.')
 
 # ── Plotting ─────────────────────────────────────────────────────────────
-fig, (ax_tot, ax_cr) = plt.subplots(1, 2, figsize=(12, 5))
+fig, (ax_tot, ax_cr, ax_mach) = plt.subplots(1, 3, figsize=(18, 5))
 
 PHASE_STYLE = {
     'SW':  {'ls': '-',  'fill': 'full'},
@@ -183,8 +197,21 @@ for label, se in snap_energy.items():
         #     ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
         # )
 
+    # Mach number vs time
+    ax_mach.plot(
+        r_sh, se['mach_w'],
+        ls=PHASE_STYLE['SW']['ls'], marker=marker, color=color,
+        ms=6, lw=2.0, mfc=color, mec='black', mew=0.5
+    )
+    ax_mach.plot(
+        r_sh, se['mach_a'],
+        ls=PHASE_STYLE['SAM']['ls'], marker=marker, color=color,
+        ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
+    )
+
 ax_tot.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{total} / E_\mathrm{w}$', title='Total Energy by Phase')
 ax_cr.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{CR} / E_\mathrm{w}$', title='CR Energy by Phase')
+ax_mach.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$\mathcal{M}$', title='Mach Number by Phase')
 
 # Build two clean legends: one for run, one for phase
 run_handles = [
@@ -201,16 +228,18 @@ phase_handles = [
     Line2D([0], [0], color='black', ls='--', lw=2, marker='o', ms=6, mfc='white', mec='black', label='SAM'),
 ]
 
-for ax in (ax_tot, ax_cr):
+for ax in (ax_tot, ax_cr, ax_mach):
     leg_runs = ax.legend(handles=run_handles+phase_handles, fontsize=8, framealpha=0.7, loc='best')
     ax.add_artist(leg_runs)
     # ax.legend(handles=phase_handles, fontsize=8, framealpha=0.7, loc='best')
     ax.grid(True, alpha=0.3, ls='--')
+
+for ax in (ax_tot, ax_cr, ax_mach):
     # ax.set_xlim(left=0)
     ax.set_yscale("log") # Standard to view phase-split normalization over time/radius as log
     ax.set_xscale("log") # Shell radius often spans orders of magnitude, so log scale can help visualize trends across all scales
 
-plt.tight_layout()
-fname = os.path.join(OUTDIR, 'phase_energy_plots.png')
+# plt.tight_layout()
+fname = os.path.join(OUTDIR, 'phase_energy_plots2.png')
 fig.savefig(fname, dpi=150)
 print(f'\n✓ Plot saved to: {fname}')
