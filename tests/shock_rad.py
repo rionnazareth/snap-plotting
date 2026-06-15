@@ -36,25 +36,22 @@ import scienceplots
 plt.style.use(['science'])
 
 from lib import *
+from lib import _count_snaps
 
 # ── paths & settings ─────────────────────────────────────────────────────────
 BASE= '/cosma8/data/dp317/dc-naza3/homogeneous'
 SNAPBASE  = 'snap_'
-N_SNAPS   = 9
 
 RUNS = {
     #     r'Hydro only':      {'path': BASE + '/new/output_cnocr/',    'has_cr': False,  'ls': '--','m': '^',  'c': 'maroon'},
     #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':', 'm': 's',  'c': 'orange'},
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-', 'm': 'o',  'c': 'teal'},
-        # r'$\rho = \rho_0 \times 10$ et': {'path': BASE + '/et_backup/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','m': 'o'},
-        #         r'$\rho = \rho_0/10$': {'path': BASE + '/et_backup/0.5/', 'has_cr': True, 'ls': ':', 'c': 'C1','m': 'D'},
-        # r'$\rho = \rho_0$': {'path': BASE + '/et_backup/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','m': 'D'},
-            r'hydro run': {'path': BASE + '/mtests/output_bf/', 'ls': '-', 'c': 'C3','m': 'o'},
-    r'with CRs':    {'path': BASE + '/mtests/output_bfcr/', 'ls': '--', 'c': 'C4','m': 's'},
-    
+        r'$n_\mathrm{H}=50$ cm$^{-3}$': {'path': BASE + '/hires/50/',  'ls': '-',  'c': 'C0', 'm': 'o', 'has_cr': True},
+    r'$n_\mathrm{H}=5$ cm$^{-3}$':           {'path': BASE + '/hires/5/',   'ls': '--', 'c': 'C1', 'm': 's', 'has_cr': True},
+    r'$n_\mathrm{H}=0.5$ cm$^{-3}$':        {'path': BASE + '/hires/0.5/', 'ls': ':',  'c': 'C2', 'm': '^', 'has_cr': True},
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mtests')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rad')
 os.makedirs(OUTDIR, exist_ok=True)
 
 # ── extract shock radii ───────────────────────────────────────────────────────
@@ -68,8 +65,9 @@ first_run_r = None
 
 for label, info in RUNS.items():
     t_arr, r_shock_arr = [], []
-    
-    for n in range(N_SNAPS):
+
+    n_snaps = _count_snaps(info['path'])
+    for n in range(n_snaps):
         try:
             s = load_snap_data(n, snappath=info['path'], snapbase=SNAPBASE)
             # lib.py's find_shock_radius returns (forward_shock, reverse_shock)

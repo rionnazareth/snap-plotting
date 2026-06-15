@@ -6,19 +6,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
 from lib import *
+from lib import _count_snaps
 
 plt.style.use(['science'])
 
-BASE = '/cosma8/data/dp317/dc-naza3/homogeneous'
+BASE = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
 RUNS = {
-    r'$n_\mathrm{H}=50$ cm$^{-3}$': {'path': BASE + '/et_backup/50/',  'ls': '-',  'c': 'C0'},
-    r'$n_\mathrm{H}=5$ cm$^{-3}$':           {'path': BASE + '/et_backup/5/',   'ls': '--', 'c': 'C1'},
-    r'$n_\mathrm{H}=0.5$ cm$^{-3}$':        {'path': BASE + '/et_backup/0.5/', 'ls': ':',  'c': 'C2'},
+    r'$n_\mathrm{H}=0.5$ cm$^{-3}$':        {'path': BASE + '/hires/0.5/', 'ls': ':',  'c': 'C2'},
+    r'$n_\mathrm{H}=5$ cm$^{-3}$':           {'path': BASE + '/hires/5/',   'ls': '--', 'c': 'C1'},
+    r'$n_\mathrm{H}=50$ cm$^{-3}$': {'path': BASE + '/hires/50/',  'ls': '-',  'c': 'C0'},
+
     # r'hydro run': {'path': BASE + '/mtests/output_bf/', 'ls': '-', 'c': 'C3'},
     # r'with CRs':    {'path': BASE + '/mtests/output_bfcr/', 'ls': '--', 'c': 'C4'},
 }
 SNAPBASE = 'snap_'
-N_SNAPS  = 9
 OUTDIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rad')
 os.makedirs(OUTDIR, exist_ok=True)
 
@@ -34,7 +35,8 @@ ref_anchored = False
 for label, info in RUNS.items():
     t_arr, r_lower, r_upper = [], [], []
 
-    for n in range(N_SNAPS):
+    n_snaps = _count_snaps(info['path'])
+    for n in range(1,n_snaps):
         try:
             s = load_snap_data(n, snappath=info['path'] + '/', snapbase=SNAPBASE)
             r_l, r_u = find_shell_radius(s)
@@ -49,9 +51,19 @@ for label, info in RUNS.items():
         continue
 
     t_arr   = np.array(t_arr)
+    print('last time:', t_arr[-1])
     r_lower = np.array(r_lower)
     r_upper = np.array(r_upper)
     r_mid   = 0.5 * (r_lower + r_upper)
+    t0, r0 = t_arr[0], r_mid[0]
+
+    
+    r_lower = r_lower[1:]- r0
+    r_upper = r_upper[1:]-r0
+    r_mid = r_mid[1:]-r0
+    t_arr = t_arr[1:]-t0
+
+
 
     ax.fill_between(t_arr, r_lower, r_upper, color=info['c'], alpha=0.3, lw=0)
     ax.plot(t_arr, r_mid, color=info['c'], ls=info['ls'], lw=2, label=label)
@@ -59,10 +71,9 @@ for label, info in RUNS.items():
     # Local log-log slope: d(log R)/d(log t)
     slope = np.gradient(np.log(r_mid), np.log(t_arr))
     ax2.plot(t_arr, slope, color=info['c'], ls=info['ls'], lw=2, label=label)
-
     # Anchor reference lines to first run
     if not ref_anchored:
-        t0, r0 = t_arr[0], r_mid[0]
+        
         t_ref  = np.logspace(np.log10(t_arr.min()), np.log10(t_arr.max()), 300)
         ax.plot(t_ref, r0 * (t_ref / t0)**1,
                 'k--', lw=1, label=r'$\propto t$')
@@ -71,6 +82,7 @@ for label, info in RUNS.items():
         ax2.axhline(1,   color='k',          ls='--', lw=1, label=r'$\alpha=1$')
         ax2.axhline(3/5, color='steelblue',  ls=':',  lw=1, label=r'$\alpha=3/5$')
         ref_anchored = True
+        ref_anchored = True
 
     # R_free horizontal line
     try:
@@ -78,7 +90,7 @@ for label, info in RUNS.items():
         n0    = np.nanmedian(s0.data['n_dens_cm'])
         rho_0 = n0 * m_p * 0.6
         r_free_pc, _ = calculate_R_free(BETA, TAU, B, L_AGN, rho_0=rho_0)
-        ax.axhline(r_free_pc, color=info['c'], ls='--', lw=1, alpha=0.8,
+        ax.axhline(r_free_pc-r0, color=info['c'], ls='--', lw=1, alpha=0.8,
                    label=rf'$R_{{\rm free}}$ ({label})')
         print(f'  {label}: R_free = {r_free_pc:.1f} pc  (n0 = {n0:.2e} cm^-3)')
     except Exception as e:
@@ -86,8 +98,8 @@ for label, info in RUNS.items():
 
 ax.set_xscale('log')
 ax.set_yscale('log')
-ax.set_xlabel(r'$t\ [\mathrm{Myr}]$')
-ax.set_ylabel(r'$R\ [\mathrm{pc}]$')
+ax.set_xlabel(r'$t-t_0\ [\mathrm{Myr}]$')
+ax.set_ylabel(r'$R-R_0\ [\mathrm{pc}]$')
 ax.legend(fontsize=7, loc='upper left', framealpha=0.5)
 
 ax2.set_xscale('log')

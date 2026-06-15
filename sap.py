@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     ## Set global figure options
 
-    image_proj = 'side'     # side or top viewing angle
+    image_proj = 'top'     # side or top viewing angle
     plotsize =  0.5   # Size in kpc of one panel
     proj_on = False    # Whether to do a slice or a projection
     proj_fact = 0.01         # Fraction of plotsize to project through
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     add_vec = False
     ## Plot each axis quadrent
     # Top left
+    norm_by_snap0(norm)
     quad_TL, map_TL = plot_quad_axis(
         s,
         fig,
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
         ax.set_xticks([])
         ax.set_yticks([])
-    r_shock, r_reverse = find_shock_radius(s, r_range=(1e-3,plotsize), nbins=500)
+    # r_shock, r_reverse = find_shock_radius(s, r_range=(1e-3,plotsize), nbins=500)
 
     revshock = True
     shock = True

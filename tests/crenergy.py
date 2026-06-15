@@ -43,14 +43,17 @@ RUNS = {
     #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'orange'},
 
-    #         r'$\rho = \rho_0$':      {'path': BASE + '/rho_vary/5/',    'has_cr': True,  'ls': '--',  'c': 'maroon', },
-    # #   r'$\rho = \rho_0 \times 10$':       {'path': BASE + '/rho_vary/50/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
+            r'$\rho = \rho_0$':      {'path': BASE + '/rho_vary/5/',    'has_cr': True,  'ls': '--',  'c': 'maroon', 'marker': 's'},
+    # # #   r'$\rho = \rho_0 \times 10$':       {'path': BASE + '/rho_vary/50/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
     # r'$\rho = \rho_0 / 10$':      {'path': BASE + '/rho_vary/0.5/',   'has_cr': True,  'ls': '-',   'c': 'teal'},
-    # r'with diffusion':      {'path': BASE + '/old/output_cr/',   'has_cr': True,  'ls': '-',   'c': 'green'},
+    r'with diffusion':      {'path': BASE + '/old/output_cr/',   'has_cr': True,  'ls': '-',   'c': 'green'},
 
-        r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
-    r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
-        r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+    #             r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
+    #     r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
+    #     r'$\rho = \rho_0$': {'path': BASE + '/old/output_cr/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+    #  r'$\rho = \rho_0$+no diff': {'path': BASE + '/old/output_cr600/', 'has_cr': True, 'ls': '-', 'c': 'C3','marker': 'P'},
+
+
 
     # r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True},
     # r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/', 'has_cr': True},
@@ -77,7 +80,7 @@ COLORS = {
     # r'CR cooling no B fields': 'purple'
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rhov2')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rhov3')
 os.makedirs(OUTDIR, exist_ok=True)
 
 def _count_snaps(path):
@@ -236,7 +239,7 @@ for label, se in snap_energy.items():
         # Add a proxy artist for the legend to show the symbol, since scatter with a colormap often loses the legend handle
         ax_cr.plot(se['rshell'], se['ecr']/E_w , '--', ms=4,color=col, label=name)
         # sc = ax_cr.scatter(se['rshell'], se['ecr'] / E_w, c=se['edis'] / E_w, marker=sym, cmap='viridis')
-        sc = ax_cr.scatter(se['rshell'], se['ecr'] / E_w, c=col, marker=sym, cmap='viridis')#se['edis']*(unit_e/unit_t)/L_AGN
+        sc = ax_cr.scatter(se['rshell'], se['ecr'] / E_w , c=col, marker=sym, cmap='viridis')#se['edis']*(unit_e/unit_t)/L_AGN
         # if not hasattr(ax_cr, 'colorbar_added'):
         #     cvals = se['edis'] * (unit_e / unit_t) / L_AGN
         #     cvals = cvals[cvals > 0]
@@ -256,19 +259,20 @@ for label, se in snap_energy.items():
     ax_parts.plot(se['rshell'], se['ecr'] / E0_abs,    'v--', color=col, ms=3, alpha=0.6, label=f'{name} $E_\\mathrm{{cr}}$')
 
     # (d) Custom Value
+    dt = np.diff(se['time_myr'], prepend=0) * myr_to_s/unit_t
     if np.any(se[value] != 0):
         if list(RUNS.keys()).index(label) == 0:
             E0_value = se[value2][0] 
-        ax_value.plot(se['rshell'], se[value], 'o-', color=col, ms=4, label=name)
+        ax_value.plot(se['rshell'], (se['ecr']/dt) / se['edis'], 'o-', color=col, ms=4, label=name)
 
 ax_norm.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{total}(t) / E_\mathrm{wind}$', title='(a) Total energy normalised')
 ax_norm.axhline(1, color='k', ls='--', alpha=0.5)
 
-ax_cr.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{CR} / E_\mathrm{wind} $', title='(b) Dissipated Energy', xscale='log', yscale='log')
+ax_cr.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{CR} / E_\mathrm{wind}$', title='(b) Dissipated Energy', xscale='log', yscale='log')
 
 ax_parts.set(xlabel=r'$R_\mathrm{sh}$', ylabel=r'$E_\mathrm{CR}/ |E_\mathrm{total,0}|$', title='(c) Energy components')
 
-ax_value.set(xlabel=r'$R_\mathrm{sh}$', ylabel=f'$\mathcal{{M}}$', title='(d)  Custom value evolution')
+ax_value.set(xlabel=r'$R_\mathrm{sh}$', ylabel=f'$ \dot{{E}}_\\mathrm{{CR}}/\\dot{{E}}_\\mathrm{{dis}} $', title='(d)  Custom value evolution')
 
 for ax in axes:
     ax.legend(fontsize=8, framealpha=0.7)
@@ -276,6 +280,6 @@ for ax in axes:
     ax.set_xlim(left=0)
 
 plt.tight_layout()
-fname = os.path.join(OUTDIR, 'simple_energy_plots.png')
+fname = os.path.join(OUTDIR, 'simple_energy_plots2.png')
 fig.savefig(fname, dpi=150)
 print(f'\n✓ Plot saved to: {fname}')

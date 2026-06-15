@@ -505,7 +505,7 @@ def plot_quad_axis(
             seed = gaussian_filter(np.random.rand(*U.shape), sigma=1.5)    
             
             print(quad_ax.get_xlim(), quad_ax.get_ylim())
-            lic_img = lic.lic(U.T, V.T, seed=seed, length=30, contrast=True)
+            lic_img = lic.lic(U.T, V.T, length=30, contrast=True)
             
             quad_ax.imshow(
                 lic_img.T,
@@ -705,20 +705,36 @@ def find_shock_radius(s, r_range=(1e-3,1), nbins=500):
         
     return r_shock, r_reverse_shock
 
+def _weighted_percentile(values, weights, percentiles):
+    """Percentile(s) of `values` weighted by `weights` (linear interpolation)."""
+    values  = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    order   = np.argsort(values)
+    values, weights = values[order], weights[order]
+    # Cumulative weight at the midpoint of each cell's weight, normalised to [0, 100]
+    cum = np.cumsum(weights) - 0.5 * weights
+    cum /= np.sum(weights)
+    return np.interp(np.asarray(percentiles) / 100.0, cum, values)
+
 def find_shell_radius(s):
-    # Select cells where the wind tracer is greater than 0.5
+    # Select cells where the wind tracer is greater than the threshold
     unit_v = s.header['UnitVelocity_in_cm_per_s']
-    mask = s.data['wind'] > 0.5 
+    mask = s.data['wind'] > 1e-4
     wind_r = s.data['r'][mask]
-    
+
     # Handle the case where no cells match the criteria
     if len(wind_r) == 0:
         return np.nan, np.nan
-        
+
     # Calculate the 95th (2σ) and 99.7th (3σ) percentiles of the radial distances
-    r_shell_l = np.percentile(wind_r, 95)
-    r_shell_u = np.percentile(wind_r, 99.7)
-    
+    # r_shell_l = np.percentile(wind_r, 95)
+    # r_shell_u = np.percentile(wind_r, 99.7)
+
+    # Mass-weight the percentiles so the heavily refined (many small cells)
+    # inner region doesn't bias the radius inward. mass = rho * vol.
+    wind_m = (s.data['rho'][mask] * s.data['vol'][mask])
+    r_shell_l, r_shell_u = _weighted_percentile(wind_r, wind_m, [95, 99.7])
+
     return r_shell_l, r_shell_u
 
 def find_Rcool(snappath, snapnum, L_AGN=1e45, v_w = 1e4):

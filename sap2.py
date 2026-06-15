@@ -62,11 +62,11 @@ if __name__ == "__main__":
     res = 1024               # Pixels per panel
 
     ## Load the snapshot
-    v = 'nH_cm'
-    c = 'jet'
-    r = [1e-1,1e1]
-    snap_num = 5
-    output_path = BASE_PATH + '/rho_vary/5/'
+    v = 'xcr'
+    c = 'vanimo'
+    r = [1e-2,1]
+    snap_num = 1
+    output_path = BASE_PATH + '/hires/5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
     snap_time = calc_snap_time(s)
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     unit_rho = unit_m / unit_l**3
     unit_pres = unit_rho * (unit_v**2)
 
-    norm = True
+    norm = False
     cdis = False
     def norm_by_snap0(norm):
         s0 = load_snap_data(0,snappath=output_path,snapbase=SNAPBASE)
@@ -154,8 +154,8 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    snap_num = 7
-    output_path = BASE_PATH + '/rho_vary/0.5/'
+    # snap_num = 1
+    output_path = BASE_PATH + '/hires/0.5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
     snap_time = calc_snap_time(s)
@@ -187,11 +187,11 @@ if __name__ == "__main__":
     # Top right
     # snap_num = 1
 
-    # output_path = BASE_PATH + '/old/output_crred10/'
+    output_path = BASE_PATH + '/hires/50/'
 
-    # s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    # snap_time = calc_snap_time(s)
-    # norm_by_snap0(norm)
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    norm_by_snap0(norm)
     quad_TR, map_TR = plot_quad_axis(
         s,
         fig,
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     
     cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
                            quad_TR.get_position().width, 0.02])
-    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'$\rho = \rho_0 / 10$', ticklocation='top')
+    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'$\rho = \rho_0 \times 10$', ticklocation='top')
     
     cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.08, 
                            quad_BR.get_position().width, 0.02])

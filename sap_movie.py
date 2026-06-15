@@ -64,7 +64,7 @@ def render_frame_from_data(frame_data):
 
    ## Set global figure options
 
-    image_proj = 'side'      # side or top viewing angle; top view shows azimuthal curvature
+    image_proj = 'top'      # side or top viewing angle; top view shows azimuthal curvature
     plotsize =  0.5  # Size in kpc of one panel
     proj_on = False        # Whether to do a slice or a projection
     proj_fact = 0.1         # Fraction of plotsize to project through
@@ -73,7 +73,7 @@ def render_frame_from_data(frame_data):
     ## Load the snapshot
     c = 'jet'
     r = [1e-2,5e1]
-    add_vec = False
+    add_vec = True
     vec_val = 'vel'
     logplot = True
 
@@ -98,11 +98,9 @@ def render_frame_from_data(frame_data):
     # Top left
 
     # Here we're passing the same snap each time, but you could give each one a different snapshot to make e.g. a time series image
-    output_path = BASE_PATH + '/new/output_cnocr/'
+    output_path = BASE_PATH + '/new/output_cbcr/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
-
     unit_v = s.header['UnitVelocity_in_cm_per_s']
     unit_l = s.header['UnitLength_in_cm'] 
     unit_m = s.header['UnitMass_in_g']
@@ -134,13 +132,13 @@ def render_frame_from_data(frame_data):
         vec_val='bfld'
         )
 
-    output_path = BASE_PATH + '/new/output_cbf/'
+    # output_path = BASE_PATH + '/new/output_cbf/'
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    # s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    # snap_time = calc_snap_time(s)
     # Bottom left
     norm_by_snap0(norm)
-    quad_BL, map_BL = plot_quad_axis(
+    _, _ = plot_quad_axis(
         s,
         fig,
         quad_subs,
@@ -167,10 +165,9 @@ def render_frame_from_data(frame_data):
     output_path = BASE_PATH + '/new/output_cbcr/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
     # Bottom right
     norm_by_snap0(norm)
-    quad_BR, map_BR = plot_quad_axis(
+    quad_BR, _ = plot_quad_axis(
         s,
         fig,
         quad_subs,
@@ -197,9 +194,8 @@ def render_frame_from_data(frame_data):
     # output_path = BASE_PATH + '/output_cturb/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
     norm_by_snap0(norm)
-    quad_TR, map_TR = plot_quad_axis(
+    _, _ = plot_quad_axis(
         s,
         fig,
         quad_subs,
@@ -226,27 +222,13 @@ def render_frame_from_data(frame_data):
 
     # plt.show()
 
-    # Adjust figure to make room for colorbars
-    fig.subplots_adjust(bottom=0.14, top=0.88)
-
-    # Add colorbars - top row at the top, bottom row at the bottom
-    cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.02, 
-                           quad_TL.get_position().width, 0.02])
-    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label=r'hydro', ticklocation='top')
-    
-    cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.08, 
-                           quad_BL.get_position().width, 0.02])
-    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'hydro+B')
-    
-    cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
-                           quad_TR.get_position().width, 0.02])
-    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'hydro+B+cr', ticklocation='top')
-    
-    cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.08, 
-                           quad_BR.get_position().width, 0.02])
-    fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal', label=r'hydro+B+cr')
-
-    fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr \n$n_\\mathrm{{H}}$ [cm$^{-3}$]', fontsize=12, y=1.002)
+    # Single colorbar on the right spanning the full 2x2 grid height
+    fig.subplots_adjust(right=0.88)
+    pos_TL = quad_TL.get_position()
+    pos_BR = quad_BR.get_position()
+    cax = fig.add_axes([pos_BR.x1 + 0.02, pos_BR.y0, 0.03, pos_TL.y1 - pos_BR.y0])
+    cb = fig.colorbar(map_TL, cax=cax, orientation='vertical')
+    cb.set_label(r'$n_\mathrm{H}$ [cm$^{-3}$]', fontsize=20)
 
     #     # Add colorbars - top row at the top, bottom row at the bottom
     # cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1, 

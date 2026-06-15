@@ -1,4 +1,4 @@
-#!/cosma/apps/dp317/dc-naza3/renv/bin/python
+
 import sys, os
 import numpy as np
 import matplotlib
@@ -45,13 +45,17 @@ RUNS = {
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'teal', 'marker': 'D'},
             # r'$\rho = \rho_0$ 2': {'path': BASE + '/rhov_hires/5/', 'has_cr': True, 'ls': '-', 'c': 'C5','marker': 'o'},
 
-        # r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
-        # r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
-        #  r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
+    #     r'$\rho = \rho_0 \times 10$': {'path': BASE + '/old/output_crinc10/', 'has_cr': True, 'ls': '-', 'c': '#1f77b4','marker': 'o'},
+    # r'$\rho = \rho_0 / 10$':    {'path': BASE + '/old/output_crred10/', 'has_cr': True, 'ls': '--', 'c': '#ff7f0e','marker': 's'},
+    #     r'$\rho = \rho_0$': {'path': BASE + '/old/output_cr/', 'has_cr': True, 'ls': ':', 'c': '#2ca02c','marker': 'D'},
 
-        r'$\rho = \rho_0 \times 10$ et': {'path': BASE + '/et/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
-                r'$\rho = \rho_0/10$': {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': ':', 'c': 'C1','marker': 'D'},
-        r'$\rho = \rho_0$': {'path': BASE + '/et/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+    #                 r'$\rho = \rho_0$':      {'path': BASE + '/rho_vary/5/',    'has_cr': True,  'ls': '--',  'c': 'maroon', 'marker': 's'},
+    # # #   r'$\rho = \rho_0 \times 10$':       {'path': BASE + '/rho_vary/50/',    'has_cr': True,  'ls': ':',   'c': 'orange'},
+    # r'$\rho = \rho_0 / 10$':      {'path': BASE + '/rho_vary/0.5/',   'has_cr': True,  'ls': '-',   'c': 'teal'},
+
+            r'$n_\mathrm{H}=50$ cm$^{-3}$': {'path': BASE + '/hires/50/',  'ls': '-',  'c': 'C0', 'm': 'o', 'has_cr': True},
+    r'$n_\mathrm{H}=5$ cm$^{-3}$':           {'path': BASE + '/hires/5/',   'ls': '--', 'c': 'C1', 'm': 's', 'has_cr': True},
+    r'$n_\mathrm{H}=0.5$ cm$^{-3}$':        {'path': BASE + '/hires/0.5/', 'ls': ':',  'c': 'C2', 'm': '^', 'has_cr': True},
 
 }
 
@@ -79,7 +83,7 @@ for label, cfg in RUNS.items():
     data = {k: [] for k in ['time_myr', 'rshell', 'etot_w', 'etot_a', 'ecr_w', 'ecr_a', 'ecr_tot', 'etot_exp', 'ecr_exp', 'mach_w', 'mach_a', 'edis_w', 'edis_a', 'edis_tot']}
 
 
-    for i in range(2,19):
+    for i in range(1,n_snaps):
         try:
             s = load_snap_data(num=i, snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
