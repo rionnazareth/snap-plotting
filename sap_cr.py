@@ -56,23 +56,23 @@ if __name__ == "__main__":
     ## Set global figure options
 
     image_proj = 'side'      # side or top viewing angle; top view shows azimuthal curvature
-    plotsize =  0.75  # Size in kpc of one panel
+    plotsize =  0.5  # Size in kpc of one panel
     proj_on = False        # Whether to do a slice or a projection
     proj_fact = 0.1         # Fraction of plotsize to project through
     res = 1024               # Pixels per panel
 
     ## Load the snapshot
-    v = 'beta'
-    c = 'jet'
-    r = None#[1e-3,1e2]
-    snap_num = 12
+    v = 'xcr'
+    c = 'vanimo'
+    r = [1e-2,1e2]
+    snap_num = 1
     
     add_vec = False
     logplot = True
 
     
 
-    norm = True
+    norm = False
     cdis = False
     def norm_by_snap0(norm):
         s0 = load_snap_data(0,snappath=output_path,snapbase=SNAPBASE)
@@ -91,10 +91,10 @@ if __name__ == "__main__":
 
     ## Plot each axis quadrent
     # Top left
-    output_path = BASE_PATH + '/mtests/output_hydro'
+    output_path = BASE_PATH + '/rhov_hires/5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    snap_time_TL = calc_snap_time(s)
 
     unit_v = s.header['UnitVelocity_in_cm_per_s']
     unit_l = s.header['UnitLength_in_cm'] 
@@ -127,10 +127,10 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    output_path = BASE_PATH + '/mtests/output_bf'
+    # output_path = BASE_PATH + '/new/output_cbf/'
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    s = load_snap_data(4,snappath=output_path,snapbase=SNAPBASE)
+    snap_time_BL = calc_snap_time(s)
     # Bottom left
     norm_by_snap0(norm)
     quad_BL, map_BL = plot_quad_axis(
@@ -157,10 +157,10 @@ if __name__ == "__main__":
         )
 
     # snap_num = 1
-    output_path = BASE_PATH + '/mtests/output_bfcr'
+    # output_path = BASE_PATH + '/new/output_cbcr/'
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    s = load_snap_data(7,snappath=output_path,snapbase=SNAPBASE)
+    snap_time_BR = calc_snap_time(s)
     # Bottom right
     norm_by_snap0(norm)
     quad_BR, map_BR = plot_quad_axis(
@@ -189,8 +189,8 @@ if __name__ == "__main__":
     # Top right
     # output_path = BASE_PATH + '/output_cturb/'
 
-    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    snap_time = calc_snap_time(s)
+    s = load_snap_data(9,snappath=output_path,snapbase=SNAPBASE)
+    snap_time_TR = calc_snap_time(s)
     norm_by_snap0(norm)
     quad_TR, map_TR = plot_quad_axis(
         s,
@@ -217,28 +217,22 @@ if __name__ == "__main__":
 
 
 
-    # plt.show()
+    # Adjust figure to make room for single right-side colorbar
+    fig.subplots_adjust(right=0.88)
 
-    # Adjust figure to make room for colorbars
-    fig.subplots_adjust(bottom=0.14, top=0.88)
+    # Single shared colorbar on the right
+    cax = fig.add_axes([0.90, 0.15, 0.025, 0.70])
+    fig.colorbar(map_TL, cax=cax, orientation='vertical', label=r'$\varepsilon_\mathrm{CR}$')
 
-    # Add colorbars - top row at the top, bottom row at the bottom
-    cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1 + 0.02, 
-                           quad_TL.get_position().width, 0.02])
-    fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', label=r'hydro', ticklocation='top')
-    
-    cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.08, 
-                           quad_BL.get_position().width, 0.02])
-    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'hydro+B')
-    
-    cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
-                           quad_TR.get_position().width, 0.02])
-    fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', label=r'hydro+B+cr', ticklocation='top')
-    
-    cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.08, 
-                           quad_BR.get_position().width, 0.02])
-    fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal', label=r'hydro+B+cr')
-    # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$P_\\mathrm{{CR}} / P_\\mathrm{{th}}$', fontsize=12, y=1.002)
-    fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$n_\\mathrm{{H}} / n_\\mathrm{{0}}$', fontsize=12, y=1.002)
-    fig.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/mtests/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    # Time labels in each panel corner
+    quad_TL.text(0.05, 0.95, f'$t = {snap_time_TL:.1f}$ Myr', transform=quad_TL.transAxes,
+                 color='white', ha='left', va='top', weight='bold', fontsize=11)
+    quad_BL.text(0.05, 0.05, f'$t = {snap_time_BL:.1f}$ Myr', transform=quad_BL.transAxes,
+                 color='white', ha='left', va='bottom', weight='bold', fontsize=11)
+    quad_TR.text(0.95, 0.95, f'$t = {snap_time_TR:.1f}$ Myr', transform=quad_TR.transAxes,
+                 color='white', ha='right', va='top', weight='bold', fontsize=11)
+    quad_BR.text(0.95, 0.05, f'$t = {snap_time_BR:.1f}$ Myr', transform=quad_BR.transAxes,
+                 color='white', ha='right', va='bottom', weight='bold', fontsize=11)
+    fig.suptitle(r'CR Energy Density $\varepsilon_\mathrm{CR}$', fontsize=12)
+    fig.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/crph/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

@@ -1,7 +1,11 @@
+
 if __name__ == "__main__":
     from tests.lib import *
+    import sys, os
+    import cmasher
+    sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
     print('Running snap plotting script...')
-    BASE_PATH = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+    BASE_PATH = '/cosma8/data/dp317/dc-naza3/homogeneous'
     SNAPBASE = 'snap_'
     SNAPFILETYPE = '.hdf5'
 
@@ -12,6 +16,27 @@ if __name__ == "__main__":
     m_p       = 1.66e-24
 
     ## Set up figure & axis grid
+    plt.rcParams.update({
+    'font.family':      'serif',
+    'font.size':        14,
+    'axes.labelsize':   18,
+    'axes.titlesize':   18,
+    'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
+    'xtick.labelsize':  14,
+    'ytick.labelsize':  14,
+    'xtick.major.size': 7,
+    'xtick.minor.size': 4,
+    'ytick.major.size': 7,
+    'ytick.minor.size': 4,
+    'xtick.major.width': 1.5,
+    'ytick.major.width': 1.5,
+    'xtick.direction':  'in',
+    'ytick.direction':  'in',
+    'axes.linewidth':   1.5,
+    'legend.fontsize':  13,
+    'legend.title_fontsize': 14,
+        })
     fig = plt.figure(figsize=(10,10))
 
     outer = gridspec.GridSpec(1, 1, wspace=0.2)
@@ -29,21 +54,29 @@ if __name__ == "__main__":
     v = 'temp'
     c = 'viridis'
     r = [1e5,1e9]
-    snap_num = 5
-    output_path = BASE_PATH + '/old/output_crred10/'
+    snap_num = 10
+    output_path = BASE_PATH + '/rhov_hires/5/'
 
     slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
     numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
 
+    unit_v = s.header['UnitVelocity_in_cm_per_s']
+    unit_l = s.header['UnitLength_in_cm'] 
+    unit_m = s.header['UnitMass_in_g']
+    unit_t = unit_l / unit_v
+    unit_rho = unit_m / unit_l**3
+    unit_pres = unit_rho * (unit_v**2)
+
     s0 = load_snap_data(0,snappath=output_path,snapbase=SNAPBASE)
     norm = True
     if norm:
-        for data_key in ['temp', 'nH_cm', 'cren']:
+        for data_key in ['vrad', 'cren']:
             # Avoid division by zero and cast to float to avoid UFuncTypeError
             div = s0.data[data_key].mean() if s0.data[data_key].mean() != 0 else 1e-10
-            if data_key == 'cren': div = s0.data['u'].mean()  # Normalize CR energy by initial internal energy, not CR energy:
+            if data_key == 'cren': div = np.median(s0.data['u'])  # Normalize CR energy by initial internal energy, not CR energy:
+            if data_key == 'vrad': div = 1e5/unit_v  # Normalize velocities by 1000 km/s to get more manageable numbers
             s.data[data_key] = s.data[data_key].astype(float) / div
             print(f'Normalized {data_key} by dividing by max value from snap 0: {s0.data[data_key].mean()}')
             
@@ -58,7 +91,7 @@ if __name__ == "__main__":
         quad_ax_loc = [0,0],
         var = 'temp',
         weighted = 'rho', # or None
-        ranges = [1,1e5],
+        ranges = [5e4,1e9],
         cmap = 'gnuplot',
         logplot = True,
         divzero = False,
@@ -88,8 +121,8 @@ if __name__ == "__main__":
         quad_ax_loc = [1,0],
         var = 'nH_cm',
         weighted = 'rho', # or None
-        ranges = [1e-3,1e1],
-        cmap = 'viridis',
+        ranges = [1e-3,1e2],
+        cmap = 'jet',
         logplot = True,
         divzero = False,
         divzero_centre = None,
@@ -111,10 +144,10 @@ if __name__ == "__main__":
         fig,
         quad_subs,
         quad_ax_loc = [1,1],
-        var = 'xcr',
+        var = 'vrad',
         weighted = 'rho', # or None
-        ranges = [2e-4,1e3],
-        cmap = 'Blues',
+        ranges = [2e1,1e4],
+        cmap = 'cmr.ember',
         logplot = True,
         divzero = False,
         divzero_centre = None,
@@ -140,10 +173,10 @@ if __name__ == "__main__":
         fig,
         quad_subs,
         quad_ax_loc = [0,1],
-        var = 'cren',
+        var = 'crendens',
         weighted = 'rho', # or None
-        ranges = [2e-4,1e4],
-        cmap = 'cividis',
+        ranges = [2e-2,1e1],
+        cmap = 'cmr.amethyst',
         logplot = True,
         divzero = False,
         divzero_centre = None,
@@ -162,15 +195,15 @@ if __name__ == "__main__":
         ax.set_yticks([])
     r_shock, r_reverse = find_shock_radius(s, r_range=(1e-3,plotsize), nbins=500)
 
-    s_nocr = load_snap_data(snap_num,snappath=BASE_PATH + '/old/output_homo/',snapbase=SNAPBASE)
-    r_nocr, r_revnocr= find_shock_radius(s_nocr, r_range=(1e-3,plotsize), nbins=500)
-    revshock = False
-    for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
-        ax.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_shock, color='magenta', fill=False, linestyle='--', linewidth=1.5, label='Forward Shock'))
-        # ax.add_patch(plt.Circle((s_nocr.header['BoxSize']/2., s_nocr.header['BoxSize']/2.), r_nocr, color='magenta', fill=False, linestyle=':', linewidth=1.5, label='No-CR Shock'))
-        if revshock:
-            ax.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_reverse, color='cyan', fill=False, linestyle='--', linewidth=1.5, label='Reverse Shock'))
-            ax.add_patch(plt.Circle((s_nocr.header['BoxSize']/2., s_nocr.header['BoxSize']/2.), r_revnocr, color='cyan', fill=False, linestyle=':', linewidth=1.5, label='No-CR Reverse Shock'))
+    revshock = True
+    shock = True
+    if shock:
+        for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
+            ax.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_shock, color='yellow', fill=False, linestyle='--', linewidth=1.5, label='Forward Shock'))
+            # ax.add_patch(plt.Circle((s_nocr.header['BoxSize']/2., s_nocr.header['BoxSize']/2.), r_nocr, color='magenta', fill=False, linestyle=':', linewidth=1.5, label='No-CR Shock'))
+            if revshock:
+                ax.add_patch(plt.Circle((s.header['BoxSize']/2., s.header['BoxSize']/2.), r_reverse, color='cyan', fill=False, linestyle='--', linewidth=1.5, label='Reverse Shock'))
+
 
     # plt.show()
 
@@ -178,29 +211,29 @@ if __name__ == "__main__":
 
     # Add colorbars - top row at the top, bottom row at the bottom
     cax_TL = fig.add_axes([quad_TL.get_position().x0, quad_TL.get_position().y1, 
-                           quad_TL.get_position().width, 0.02])
+                            quad_TL.get_position().width, 0.02])
     fig.colorbar(map_TL, cax=cax_TL, orientation='horizontal', ticklocation='top')#, label=r'$T/T_0$')
-    
+
     cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.02, 
-                           quad_BL.get_position().width, 0.02])
+                            quad_BL.get_position().width, 0.02])
     fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal')#, label=r'$n_\mathrm{H}/n_0$')
-    
+
     cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1, 
-                           quad_TR.get_position().width, 0.02])
+                            quad_TR.get_position().width, 0.02])
     cb_TR = fig.colorbar(map_TR, cax=cax_TR, orientation='horizontal', ticklocation='top')#, label=r'$E_\mathrm{CR}/E_0$')
     # cb_TR.set_ticks(cb_TR.get_ticks()[1:])
-    
+
     cax_BR = fig.add_axes([quad_BR.get_position().x0, quad_BR.get_position().y0 - 0.02, 
-                           quad_BR.get_position().width, 0.02])
-    
+                            quad_BR.get_position().width, 0.02])
+
     cb_BR = fig.colorbar(map_BR, cax=cax_BR, orientation='horizontal')#, label=r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$')
     # cb_BR.set_ticks(cb_BR.get_ticks()[1:])
 
-    quad_TL.text(0.05, 0.95, r'$T/T_0$', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=15)
-    quad_BL.text(0.05, 0.05, r'$n_\mathrm{H}/n_0$', transform=quad_BL.transAxes, color='black', ha='left', va='bottom', weight='bold',fontsize=15)
-    quad_TR.text(0.95, 0.95, r'$E_\mathrm{CR}/E_0$', transform=quad_TR.transAxes, color='white', ha='right', va='top', weight='bold',fontsize=15)
-    quad_BR.text(0.95, 0.05, r'$X_\mathrm{CR}=P_\mathrm{CR}/P_{th}$', transform=quad_BR.transAxes, color='black', ha='right', va='bottom', weight='bold',fontsize=15)
-   
+    quad_TL.text(0.05, 0.95, r'$T$ [K]', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=20)
+    quad_BL.text(0.05, 0.05, r'$n_\mathrm{H}$ [cm$^{-3}$]', transform=quad_BL.transAxes, color='black', ha='left', va='bottom', weight='bold',fontsize=20)
+    quad_TR.text(0.95, 0.95, r'$\epsilon_\mathrm{CR}$', transform=quad_TR.transAxes, color='white', ha='right', va='top', weight='bold',fontsize=20)
+    quad_BR.text(0.95, 0.05, r'$v_\mathrm{rad}$ [km/s]', transform=quad_BR.transAxes, color='white', ha='right', va='bottom', weight='bold',fontsize=20)
+
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}', fontsize=12, y=1.002)
     inset = False
     if inset:
@@ -236,5 +269,5 @@ if __name__ == "__main__":
         # axins.autoscale(False)
         quad_BR.indicate_inset_zoom(axins, edgecolor="gray")
 
-    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    fig.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/crph/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
 import scienceplots
 
 # plt.style.use(['science'])
@@ -42,10 +43,15 @@ RUNS = {
     #         r'Hydro only':      {'path': BASE + '/new/output_cnocr/',    'has_cr': False,  'ls': '--',  'c': 'maroon', 'marker': 'o'},
     #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':',   'c': 'orange', 'marker': 's'},
     # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-',   'c': 'teal', 'marker': 'D'},
+            # r'$\rho = \rho_0$ 2': {'path': BASE + '/rhov_hires/5/', 'has_cr': True, 'ls': '-', 'c': 'C5','marker': 'o'},
 
-        r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
-    r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
-        r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+        # r'$\rho = \rho_0 \times 10$': {'path': BASE + '/rho_vary/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
+        # r'$\rho = \rho_0$': {'path': BASE + '/rho_vary/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
+        #  r'$\rho = \rho_0 / 10$':    {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': '--', 'c': 'C1','marker': 's'},
+
+        r'$\rho = \rho_0 \times 10$ et': {'path': BASE + '/et/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','marker': 'o'},
+                r'$\rho = \rho_0/10$': {'path': BASE + '/rho_vary/0.5/', 'has_cr': True, 'ls': ':', 'c': 'C1','marker': 'D'},
+        r'$\rho = \rho_0$': {'path': BASE + '/et/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','marker': 'D'},
 
 }
 
@@ -70,13 +76,10 @@ for label, cfg in RUNS.items():
         print(f'  {label}: no snapshots found.')
         continue
 
-    data = {k: [] for k in ['time_myr', 'rshell', 'etot_w', 'etot_a', 'ecr_w', 'ecr_a', 'etot_exp', 'ecr_exp', 'mach_w', 'mach_a', 'edis_w', 'edis_a']}
+    data = {k: [] for k in ['time_myr', 'rshell', 'etot_w', 'etot_a', 'ecr_w', 'ecr_a', 'ecr_tot', 'etot_exp', 'ecr_exp', 'mach_w', 'mach_a', 'edis_w', 'edis_a', 'edis_tot']}
 
-    l = r'$\rho = \rho_0 / 10$'
-    k=0
-    if label == l:
-        k = 3
-    for i in range(k,n_snaps):
+
+    for i in range(2,19):
         try:
             s = load_snap_data(num=i, snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
@@ -106,12 +109,13 @@ for label, cfg in RUNS.items():
         etot_w, ecr_w = calc_phase_energies(mask_w)
         etot_a, ecr_a = calc_phase_energies(mask_a)
         etot_exp, ecr_exp = calc_phase_energies(mask_exp)
+        ecr_tot = np.sum(mass * s.data['cren']) if has_cr and 'cren' in s.data else 0.0
 
         mach = s.data['mach']
         mask_a &= mach>2.2
         mask_w &= mach>2.2
-        mach_w = np.max(mach[mask_w])#np.sum(mach[mask_w]*s.data['edis'][mask_w])/np.sum(s.data['edis'][mask_w]) if np.any(mask_w) else 0.0
-        mach_a = np.max(mach[mask_a])#np.sum(mach[mask_a]*s.data['edis'][mask_a])/np.sum(s.data['edis'][mask_a]) if np.any(mask_a) else 0.0
+        mach_w = np.mean(mach[mask_w])#np.sum(mach[mask_w]*s.data['edis'][mask_w])/np.sum(s.data['edis'][mask_w]) if np.any(mask_w) else 0.0
+        mach_a = np.mean(mach[mask_a])#np.sum(mach[mask_a]*s.data['edis'][mask_a])/np.sum(s.data['edis'][mask_a]) if np.any(mask_a) else 0.0
 
         _, r_shell_u = find_shell_radius(s)
 
@@ -121,18 +125,45 @@ for label, cfg in RUNS.items():
         data['etot_a'].append(etot_a)
         data['ecr_w'].append(ecr_w)
         data['ecr_a'].append(ecr_a)
+        data['ecr_tot'].append(ecr_tot)
         data['etot_exp'].append(etot_exp)
         data['ecr_exp'].append(ecr_exp)
         data['mach_w'].append(mach_w)
         data['mach_a'].append(mach_a)
         data['edis_w'].append(np.sum(s.data['edis'][mask_w]))
         data['edis_a'].append(np.sum(s.data['edis'][mask_a]))
+        data['edis_tot'].append(np.sum(s.data['edis']))
 
     snap_energy[label] = {k: np.array(v) for k, v in data.items()}
     print(f'  {label}: {len(data["time_myr"])} snaps loaded.')
 
 # ── Plotting ─────────────────────────────────────────────────────────────
-fig, (ax_tot, ax_cr, ax_mach) = plt.subplots(1, 3, figsize=(18, 5))
+plt.rcParams.update({
+    'font.family':      'serif',
+    'font.size':        14,
+    'axes.labelsize':   18,
+    'axes.titlesize':   18,
+    'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
+    'xtick.labelsize':  14,
+    'ytick.labelsize':  14,
+    'xtick.major.size': 7,
+    'xtick.minor.size': 4,
+    'ytick.major.size': 7,
+    'ytick.minor.size': 4,
+    'xtick.major.width': 1.5,
+    'ytick.major.width': 1.5,
+    'xtick.direction':  'in',
+    'ytick.direction':  'in',
+    'axes.linewidth':   1.5,
+    'legend.fontsize':  13,
+    'legend.title_fontsize': 14,
+})
+
+USE_TIME = True # True → x-axis is time [Myr]; False → x-axis is R_sh [kpc]
+
+fig, axes = plt.subplots(3, 2, figsize=(12, 16))
+ax_tot, ax_cr, ax_mach, ax_crtot, ax_edis, ax_edistot = axes.ravel()
 
 PHASE_STYLE = {
     'SW':  {'ls': '-',  'fill': 'full'},
@@ -142,8 +173,10 @@ PHASE_STYLE = {
 # Get reference units from an actual run for accurate E_w scaling
 s0 = load_snap_data(num=0, snappath=list(RUNS.values())[0]['path'], snapbase=SNAPBASE)
 unit_v = s0.header['UnitVelocity_in_cm_per_s']
+unit_l = s0.header['UnitLength_in_cm']
 unit_m = s0.header['UnitMass_in_g']
 unit_e = unit_m * unit_v**2
+unit_t = unit_l / unit_v
 
 c = 3e10
 myr_to_s = 1e6 * 365.25 * 24 * 3600
@@ -161,57 +194,95 @@ for label, se in snap_energy.items():
         color = RUNS[label].get('color')
     time = se['time_myr']
     E_w = (E_w_dot / unit_e) * time * myr_to_s
-    # Small offset to avoid dividing by perfectly zero 
-    E_w = np.where(E_w == 0, 1e-10, E_w) 
-    
-    r_sh = se['rshell']
+    # Small offset to avoid dividing by perfectly zero
+    E_w = np.where(E_w == 0, 1e-10, E_w)
+
+    x    = time          if USE_TIME else se['rshell']
     name = label.replace('\n', ' ')
-    
+
     # Total Energy Panel
     ax_tot.plot(
-        r_sh, se['etot_w'] / E_w,
+        x, se['etot_w'] / E_w,
         ls=PHASE_STYLE['SW']['ls'], marker=marker, color=color,
         ms=6, lw=2.0, mfc=color, mec='black', mew=0.5
     )
     ax_tot.plot(
-        r_sh, se['etot_a'] / E_w,
+        x, se['etot_a'] / E_w,
         ls=PHASE_STYLE['SAM']['ls'], marker=marker, color=color,
         ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
     )
 
-    # CR Energy Panel
+    # CR Energy by phase Panel
     if RUNS[label]['has_cr']:
         ax_cr.plot(
-            r_sh, se['ecr_w'] / E_w,
+            x, se['ecr_w'] / E_w,
             ls=PHASE_STYLE['SW']['ls'], marker=marker, color=color,
             ms=6, lw=2.0, mfc=color, mec='black', mew=0.5
         )
         ax_cr.plot(
-            r_sh, se['ecr_a'] / E_w,
+            x, se['ecr_a'] / E_w,
             ls=PHASE_STYLE['SAM']['ls'], marker=marker, color=color,
             ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
         )
         # ax_cr.plot(
-        #     r_sh, se['ecr_exp'] / E_w,
+        #     x, se['ecr_exp'] / E_w,
         #     ls=':', marker=marker, color=color,
         #     ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
         # )
 
-    # Mach number vs time
+    # Mach number by phase Panel
     ax_mach.plot(
-        r_sh, se['mach_w'],
+        x, se['mach_w'],
         ls=PHASE_STYLE['SW']['ls'], marker=marker, color=color,
         ms=6, lw=2.0, mfc=color, mec='black', mew=0.5
     )
     ax_mach.plot(
-        r_sh, se['mach_a'],
+        x, se['mach_a'],
         ls=PHASE_STYLE['SAM']['ls'], marker=marker, color=color,
         ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
     )
 
-ax_tot.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{total} / E_\mathrm{w}$', title='Total Energy by Phase')
-ax_cr.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$E_\mathrm{CR} / E_\mathrm{w}$', title='CR Energy by Phase')
-ax_mach.set(xlabel=r'$R_\mathrm{sh}$ [kpc]', ylabel=r'$\mathcal{M}$', title='Mach Number by Phase')
+    # Total CR Energy Panel (panel b style from crenergy.py)
+    if RUNS[label]['has_cr'] and np.any(se['ecr_tot'] != 0):
+        ax_crtot.plot(
+            x, se['ecr_tot']/ E_w,
+            ls='-', marker=marker, color=color,
+            ms=6, lw=2.0, mfc=color, mec='black', mew=0.5, label=name
+        )
+
+    # Energy dissipation rate per phase (normalised by L_AGN)
+    edis_w_rate = se['edis_w'] * unit_e / unit_t / L_AGN
+    edis_a_rate = se['edis_a'] * unit_e / unit_t / L_AGN
+    ax_edis.plot(
+        x, edis_w_rate,
+        ls=PHASE_STYLE['SW']['ls'], marker=marker, color=color,
+        ms=6, lw=2.0, mfc=color, mec='black', mew=0.5
+    )
+    ax_edis.plot(
+        x, edis_a_rate,
+        ls=PHASE_STYLE['SAM']['ls'], marker=marker, color=color,
+        ms=6, lw=2.0, mfc='white', mec=color, mew=1.0
+    )
+
+    # Total energy dissipation rate (all particles, normalised by L_AGN)
+    edis_tot_rate = se['edis_tot'] * unit_e / unit_t / L_AGN
+    ax_edistot.plot(
+        x, edis_tot_rate,
+        ls='-', marker=marker, color=color,
+        ms=6, lw=2.0, mfc=color, mec='black', mew=0.5, label=name
+    )
+
+_xlabel = r'$t$ [Myr]' if USE_TIME else r'$R_\mathrm{sh}$ [kpc]'
+
+ax_tot.set(xlabel=_xlabel, ylabel=r'$E_\mathrm{total} / E_\mathrm{w}$',   title='Total Energy by Phase')
+ax_cr.set( xlabel=_xlabel, ylabel=r'$E_\mathrm{CR} / E_\mathrm{w}$',      title='CR Energy by Phase')
+ax_mach.set(xlabel=_xlabel, ylabel=r'$\mathcal{M}$',                        title=' Mach Number by Phase')
+ax_crtot.set(xlabel=_xlabel, ylabel=r'$E_\mathrm{CR} / E_\mathrm{wind}$',  title='Total CR Energy',
+             xscale='log', yscale='log')
+ax_edis.set(xlabel=_xlabel, ylabel=r'$\dot{E}_\mathrm{dis} / L_\mathrm{AGN}$',
+            title='Energy Dissipation Rate by Phase')
+ax_edistot.set(xlabel=_xlabel, ylabel=r'$\dot{E}_\mathrm{dis} / L_\mathrm{AGN}$',
+               title='Total Energy Dissipation Rate')
 
 # Build two clean legends: one for run, one for phase
 run_handles = [
@@ -231,15 +302,30 @@ phase_handles = [
 for ax in (ax_tot, ax_cr, ax_mach):
     leg_runs = ax.legend(handles=run_handles+phase_handles, fontsize=8, framealpha=0.7, loc='best')
     ax.add_artist(leg_runs)
-    # ax.legend(handles=phase_handles, fontsize=8, framealpha=0.7, loc='best')
     ax.grid(True, alpha=0.3, ls='--')
+    ax.set_yscale("log")
+    ax.set_xscale("log")
 
-for ax in (ax_tot, ax_cr, ax_mach):
-    # ax.set_xlim(left=0)
-    ax.set_yscale("log") # Standard to view phase-split normalization over time/radius as log
-    ax.set_xscale("log") # Shell radius often spans orders of magnitude, so log scale can help visualize trends across all scales
+# ax_crtot.legend(fontsize=8, framealpha=0.7, loc='best')
+ax_crtot.grid(True, alpha=0.3, ls='--')
 
-# plt.tight_layout()
+
+ax_edis.legend(handles=run_handles+phase_handles, fontsize=8, framealpha=0.7, loc='best')
+ax_edis.set_yscale("log")
+ax_edis.set_xscale("log")
+ax_edis.grid(True, alpha=0.3, ls='--')
+
+# ax_edistot.legend(fontsize=8, framealpha=0.7, loc='best')
+ax_edistot.set_yscale("log")
+ax_edistot.set_xscale("log")
+ax_edistot.grid(True, alpha=0.3, ls='--')
+
+_plain_fmt = FuncFormatter(lambda x, _: f'{x:.10g}')
+for ax in [ax_tot, ax_cr, ax_mach, ax_crtot, ax_edis, ax_edistot]:
+    ax.xaxis.set_major_formatter(_plain_fmt)
+    ax.yaxis.set_major_formatter(_plain_fmt)
+
+plt.tight_layout()
 fname = os.path.join(OUTDIR, 'phase_energy_plots2.png')
 fig.savefig(fname, dpi=150)
 print(f'\n✓ Plot saved to: {fname}')

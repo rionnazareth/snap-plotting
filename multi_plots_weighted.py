@@ -163,8 +163,8 @@ def plot_multiple(value, num_proc=4, num_snaps=10, snap_offset=0, save_path='',s
     outfile = os.path.join(save_path, f"multi_{value}.png")
     plt.savefig(outfile, dpi=600, bbox_inches="tight")
 
-save_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/hb/'
-snap_path = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/output_hb/'
+save_path = '/cosma8/data/dp317/dc-naza3/snap-plotting/tests/rhov'
+snap_path = '/cosma8/data/dp317/dc-naza3/homogeneous/rho_vary/0.5'
 
 
 # Example usage - unweighted (original)
@@ -173,7 +173,7 @@ numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) >
 plot_multiple('nH_cm', 
               num_proc=numthreads, save_path=save_path, 
               snap_path=snap_path,
-               num_snaps=10, snap_offset=0, axes_plot=[0, 2], box=[1, 1], proj=False, proj_fact=0.3, 
+               num_snaps=13, snap_offset=0, axes_plot=[0, 2], box=[1.5, 1.5], proj=False, proj_fact=0.3, 
                cmap='jet', weighted=True, weights='rho',vrange=None)
 
 print(f"Plots saved in {save_path}")

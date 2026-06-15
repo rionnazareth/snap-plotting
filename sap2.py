@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print('Running snap plotting script...')
     slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
     numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
-    BASE_PATH = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+    BASE_PATH = '/cosma8/data/dp317/dc-naza3/homogeneous'
     SNAPBASE = 'snap_'
     SNAPFILETYPE = '.hdf5'
 
@@ -62,10 +62,10 @@ if __name__ == "__main__":
     res = 1024               # Pixels per panel
 
     ## Load the snapshot
-    v = 'xcr'
-    c = 'vanimo'
-    r = [1e-2,1]
-    snap_num = 1
+    v = 'nH_cm'
+    c = 'jet'
+    r = [1e-1,1e1]
+    snap_num = 5
     output_path = BASE_PATH + '/rho_vary/5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
@@ -125,12 +125,12 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    # output_path = BASE_PATH + '/rho_vary/5/'
-    # snap_num = 1
-    # s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
-    # snap_time = calc_snap_time(s)
-    # Bottom left
-    # norm_by_snap0(norm)
+    output_path = BASE_PATH + '/rho_vary/50/'
+    snap_num = 3
+    s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
+    snap_time = calc_snap_time(s)
+    #Bottom left
+    norm_by_snap0(norm)
     quad_BL, map_BL = plot_quad_axis(
         s,
         fig,
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         vec_val='bfld'
         )
 
-    snap_num = 1
+    snap_num = 7
     output_path = BASE_PATH + '/rho_vary/0.5/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         quad_subs,
         quad_ax_loc = [1,1],
         var = v,
-        weighted = 'rho', # or None
+        weighted = None,#'rho', # or None
         ranges = r,
         cmap = c,
         logplot = logplot,
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     
     cax_BL = fig.add_axes([quad_BL.get_position().x0, quad_BL.get_position().y0 - 0.08, 
                            quad_BL.get_position().width, 0.02])
-    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'$\rho = \rho_0$')
+    fig.colorbar(map_BL, cax=cax_BL, orientation='horizontal', label=r'$\rho = \rho_0 \times 10$')
     
     cax_TR = fig.add_axes([quad_TR.get_position().x0, quad_TR.get_position().y1 + 0.02, 
                            quad_TR.get_position().width, 0.02])
@@ -241,5 +241,5 @@ if __name__ == "__main__":
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$P_\\mathrm{{CR}} / P_\\mathrm{{th}}$', fontsize=12, y=1.002)
     # fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$n_\\mathrm{{H}} / n_\\mathrm{{0}}$', fontsize=12, y=1.002)
     fig.suptitle(f'Snapshot {snap_num:03d} — Time: {snap_time:.1f} Myr — {v}\n$P_\\mathrm{{CR}}$ dyne cm$^{-2}$', fontsize=12, y=1.002)
-    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/rhov2/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    fig.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/rhov2/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

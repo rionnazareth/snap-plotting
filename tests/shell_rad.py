@@ -1,28 +1,3 @@
-"""
-compare_1d_evolution.py
-=======================
-Shows how each simulation evolves over time and contrasts the two runs:
-
-  - output_cr     (no CR diffusion)
-  - output_crexps (with CR diffusion)
-
-Inspired by the shocks1d.ipynb notebook: for every snapshot we compute a
-logarithmically-binned radial profile and overplot all snapshots on one axis,
-coloured from early (dark) to late (bright).  Then we draw the same plot for
-the other run beside it so the differences are immediately visible.
-
-Figures produced
-----------------
-  evolution_<quantity>.png     – N rows of 3 panels each:
-                                   [0] no-diffusion  evolution
-                                   [1] with-diffusion evolution
-                                   [2] relative difference at the last
-                                       common snapshot:  (crexps − cr)/cr
-
-Quantities: rho, pres, crpres (from cren), u (internal energy), speed, mach
-
-"""
-
 import sys, os
 sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
 sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/gasCloudNfw/snap-plotting')
@@ -30,79 +5,98 @@ sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/gasCloudNfw/snap-plotting')
 import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
-
 from lib import *
 
 plt.style.use(['science'])
 
-# ── paths & settings ─────────────────────────────────────────────────────────
-BASE_PATH   = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/old'
+BASE = '/cosma8/data/dp317/dc-naza3/homogeneous'
 RUNS = {
-    'Hydro (output_homo)':    {'path': f'{BASE_PATH}/output_homo',  'c': 'maroon',     'ls': ':'},
-    'CRs (output_cr600)':     {'path': f'{BASE_PATH}/output_cr600', 'c': 'forestgreen','ls': '--'},
-    'CR diffusion (output_cr)': {'path': f'{BASE_PATH}/output_cr',    'c': 'steelblue',  'ls': '-'},
+    r'$n_\mathrm{H}=50$ cm$^{-3}$': {'path': BASE + '/et_backup/50/',  'ls': '-',  'c': 'C0'},
+    r'$n_\mathrm{H}=5$ cm$^{-3}$':           {'path': BASE + '/et_backup/5/',   'ls': '--', 'c': 'C1'},
+    r'$n_\mathrm{H}=0.5$ cm$^{-3}$':        {'path': BASE + '/et_backup/0.5/', 'ls': ':',  'c': 'C2'},
+    # r'hydro run': {'path': BASE + '/mtests/output_bf/', 'ls': '-', 'c': 'C3'},
+    # r'with CRs':    {'path': BASE + '/mtests/output_bfcr/', 'ls': '--', 'c': 'C4'},
 }
-SNAPBASE    = 'snap_'
-N_SNAPS     = 11
-OUTDIR      = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fii')
+SNAPBASE = 'snap_'
+N_SNAPS  = 9
+OUTDIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rad')
 os.makedirs(OUTDIR, exist_ok=True)
 
-# ── extract shell radii ───────────────────────────────────────────────────────
-print('Loading snapshots and extracting shell radii...')
-fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-ax_lin, ax_log = axes
+# R_free parameters
+L_AGN = 1e45        # erg/s
+BETA  = 1e4 / 3e5   # v_w / c
+TAU   = 1.0
+B     = 1.0
 
+fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 5))
+
+ref_anchored = False
 for label, info in RUNS.items():
     t_arr, r_lower, r_upper = [], [], []
-    
+
     for n in range(N_SNAPS):
         try:
-            # load_snap_data is available from lib.py natively
             s = load_snap_data(n, snappath=info['path'] + '/', snapbase=SNAPBASE)
-            # find_shell_radius uses wind tracer > 0.5 and calculates the percentiles.
             r_l, r_u = find_shell_radius(s)
-            
-            if not np.isnan(r_l) and not np.isnan(r_u):
+            if not (np.isnan(r_l) or np.isnan(r_u)):
                 t_arr.append(calc_snap_time(s))
-                r_lower.append(r_l)
-                r_upper.append(r_u)
-                
+                r_lower.append(r_l * 1e3)   # kpc → pc
+                r_upper.append(r_u * 1e3)
         except Exception as e:
-            print(f'  {label} snap {n:03d} missing or error.')
+            print(f'  {label} snap {n:03d}: {e}')
 
-    if len(t_arr) == 0:
+    if not t_arr:
         continue
-        
-    t_arr = np.array(t_arr)
-    r_lower, r_upper = np.array(r_lower), np.array(r_upper)
 
-    # Clean up t=0 out of arrays for stable plotting
-    mask = t_arr > 0
-    t_arr, r_lower, r_upper = t_arr[mask], r_lower[mask], r_upper[mask]
+    t_arr   = np.array(t_arr)
+    r_lower = np.array(r_lower)
+    r_upper = np.array(r_upper)
+    r_mid   = 0.5 * (r_lower + r_upper)
 
-    # Plot thick line (filled between the 95th and 97th/99.7th percentiles)
-    for ax in axes:
-        # Plot central reference line
-        ax.plot(t_arr, (r_lower + r_upper)/2, color=info['c'], ls=info['ls'], label=label)
-        # Represents the shell thickness
-        ax.fill_between(t_arr, r_lower, r_upper, color=info['c'], alpha=0.3, lw=0)
+    ax.fill_between(t_arr, r_lower, r_upper, color=info['c'], alpha=0.3, lw=0)
+    ax.plot(t_arr, r_mid, color=info['c'], ls=info['ls'], lw=2, label=label)
 
-# ── formatting ─────────────────────────────────────────────────────────────
-for ax in axes:
-    ax.set_xlabel('Time [Myr]', fontsize=11)
-    ax.set_ylabel('Shell radius [kpc]', fontsize=11)
-    ax.grid(True, alpha=0.3, ls='--')
+    # Local log-log slope: d(log R)/d(log t)
+    slope = np.gradient(np.log(r_mid), np.log(t_arr))
+    ax2.plot(t_arr, slope, color=info['c'], ls=info['ls'], lw=2, label=label)
 
-ax_lin.legend(fontsize=9, loc='upper left')
-ax_log.set_xscale('log')
-ax_log.set_yscale('log')
+    # Anchor reference lines to first run
+    if not ref_anchored:
+        t0, r0 = t_arr[0], r_mid[0]
+        t_ref  = np.logspace(np.log10(t_arr.min()), np.log10(t_arr.max()), 300)
+        ax.plot(t_ref, r0 * (t_ref / t0)**1,
+                'k--', lw=1, label=r'$\propto t$')
+        ax.plot(t_ref, r0 * (t_ref / t0)**(3/5),
+                color='steelblue', ls=':', lw=1, label=r'$\propto t^{3/5}$')
+        ax2.axhline(1,   color='k',          ls='--', lw=1, label=r'$\alpha=1$')
+        ax2.axhline(3/5, color='steelblue',  ls=':',  lw=1, label=r'$\alpha=3/5$')
+        ref_anchored = True
 
-ax_lin.set_title('Shell radius vs time (linear)')
-ax_log.set_title('Shell radius vs time (log–log)')
-fig.suptitle('Evolution of shell front position (95th - 97th percentile)', fontsize=13)
+    # R_free horizontal line
+    try:
+        s0    = load_snap_data(0, snappath=info['path'] + '/', snapbase=SNAPBASE)
+        n0    = np.nanmedian(s0.data['n_dens_cm'])
+        rho_0 = n0 * m_p * 0.6
+        r_free_pc, _ = calculate_R_free(BETA, TAU, B, L_AGN, rho_0=rho_0)
+        ax.axhline(r_free_pc, color=info['c'], ls='--', lw=1, alpha=0.8,
+                   label=rf'$R_{{\rm free}}$ ({label})')
+        print(f'  {label}: R_free = {r_free_pc:.1f} pc  (n0 = {n0:.2e} cm^-3)')
+    except Exception as e:
+        print(f'  R_free for {label} failed: {e}')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel(r'$t\ [\mathrm{Myr}]$')
+ax.set_ylabel(r'$R\ [\mathrm{pc}]$')
+ax.legend(fontsize=7, loc='upper left', framealpha=0.5)
+
+ax2.set_xscale('log')
+ax2.set_xlabel(r'$t\ [\mathrm{Myr}]$')
+ax2.set_ylabel(r'$\alpha = \mathrm{d}\log R\,/\,\mathrm{d}\log t$')
+ax2.legend(fontsize=7, loc='upper right', framealpha=0.5)
 
 plt.tight_layout()
-fname = os.path.join(OUTDIR, 'evolution_shell_radius.png')
+fname = os.path.join(OUTDIR, 'shell_radius_rfree.png')
 fig.savefig(fname, dpi=150, bbox_inches='tight')
 plt.close(fig)
-print(f'  -> Saved output {fname}')
+print(f'\n-> Saved {fname}')

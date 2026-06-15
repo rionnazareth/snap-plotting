@@ -3,7 +3,7 @@ if __name__ == "__main__":
     import scienceplots
     plt.style.use('science')
     print('Running snap plotting script...')
-    BASE_PATH = '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+    BASE_PATH = '/cosma8/data/dp317/dc-naza3/homogeneous'
     SNAPBASE = 'snap_'
     SNAPFILETYPE = '.hdf5'
 
@@ -28,12 +28,12 @@ if __name__ == "__main__":
     res = 1024               # Pixels per panel
 
     ## Load the snapshot
-    v = 'crpres'
-    c = 'vanimo' 
-    r = None#[5e-6,1e-4]
+    v = 'nH_cm'
+    c = 'jet' 
+    r = [1e-3,1e1]
 
-    snap_num = 8
-    output_path = BASE_PATH + '/new/output_cbcr/'
+    snap_num = 10
+    output_path = BASE_PATH + '/rhov_hires/5/'
 
     slurm_ntasks = os.getenv('SLURM_NTASKS', '').strip()
     numthreads = int(slurm_ntasks) if slurm_ntasks.isdigit() and int(slurm_ntasks) > 0 else 1
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         )
 
     # snap_num = 1
-    output_path = BASE_PATH + '/new/output_cbcr/'
+    output_path = BASE_PATH + '/mtests/output_bfcr/'
 
     s = load_snap_data(snap_num,snappath=output_path,snapbase=SNAPBASE)
     snap_time = calc_snap_time(s)
@@ -188,12 +188,12 @@ if __name__ == "__main__":
     # for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
     #     ax.set_xticks([])
     #     ax.set_yticks([])
-    r_shock, r_shocku = find_shock_radius(s, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s)#
+    # r_shock, r_shocku = find_shock_radius(s, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s)#
 
-    s_nocr = load_snap_data(snap_num,snappath=BASE_PATH + '/old/output_homo/',snapbase=SNAPBASE)
-    r_nocr, r_nocru= find_shock_radius(s_nocr, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s_nocr)#
-    s_nodiff = load_snap_data(snap_num,snappath=BASE_PATH + '/old/output_cr600/',snapbase=SNAPBASE)
-    r_nodiff, r_nodiffu= find_shock_radius(s_nodiff, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s_nodiff)
+    # s_nocr = load_snap_data(snap_num,snappath=BASE_PATH + '/old/output_homo/',snapbase=SNAPBASE)
+    # r_nocr, r_nocru= find_shock_radius(s_nocr, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s_nocr)#
+    # s_nodiff = load_snap_data(snap_num,snappath=BASE_PATH + '/old/output_cr600/',snapbase=SNAPBASE)
+    # r_nodiff, r_nodiffu= find_shock_radius(s_nodiff, r_range=(1e-3,plotsize), nbins=500)#find_shell_radius(s_nodiff)
 
     revshock = False
     # for ax in [quad_TL, quad_TR, quad_BL, quad_BR]:
@@ -228,10 +228,10 @@ if __name__ == "__main__":
     # cb_BR.set_ticks(cb_BR.get_ticks()[1:])
 
     # quad_TL.text(0.05, 0.95, r'$T/T_0$', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=15)
-    quad_TL.text(0.05, 0.95, r'without CR', transform=quad_TL.transAxes, color='white', ha='left', va='top', weight='bold',fontsize=20)
+    quad_TL.text(0.05, 0.95, r'without cooling', transform=quad_TL.transAxes, color='black', ha='left', va='top', weight='bold',fontsize=30)
 
     # quad_BL.text(0.05, 0.05, r'$B = 0 \; \mathrm{G}$+diff', transform=quad_BL.transAxes, color='black', ha='left', va='bottom', weight='bold',fontsize=15)
-    quad_TR.text(0.95, 0.95, r'with CR', transform=quad_TR.transAxes, color='white', ha='right', va='top', weight='bold',fontsize=20)
+    quad_TR.text(0.95, 0.95, r'with cooling', transform=quad_TR.transAxes, color='black', ha='right', va='top', weight='bold',fontsize=30)
     # quad_BR.text(0.95, 0.05, r'$B = 0 \; \mathrm{G}$+no diff', transform=quad_BR.transAxes, color='black', ha='right', va='bottom', weight='bold',fontsize=15)
    
     # fig.suptitle(r'$|\vec{B}|$', fontsize=18, y=1.002)
@@ -277,7 +277,8 @@ if __name__ == "__main__":
         0.03,                                                  # width: 3% of figure width
         quad_TR.get_position().y1 - quad_BR.get_position().y0  # height: from bottom of BR to top of TR
     ])
-    fig.colorbar(map_TR, cax=cax, orientation='vertical', label=r'$|\vec{B}| \; \mathrm{[G]}$')
+    cbar = fig.colorbar(map_TR, cax=cax, orientation='vertical')
+    cbar.set_label(r'$n_\mathrm{H} \; \mathrm{[cm^{-3}]}$', fontsize=30)
 
-    fig.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/bfield_amp/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
+    fig.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/cool/{}_snap{}_{}.png'.format(v,number_string(snap_num),image_proj),dpi=300)
     # plt.show()

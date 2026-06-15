@@ -22,7 +22,7 @@ m_p        = 1.66e-24
 HYDROGENMASS_FRAC = 0.76
 
 import sys, os
-sys.path.insert(0, '/home/dc-naza3/arepo-snap-util')
+sys.path.insert(0, '/cosma8/data/dp317/dc-naza3/arepo-snap-util')
 import arepo_run as arun
 import gadget
 
@@ -216,6 +216,7 @@ def load_snap_data(num,snappath=None,snapbase='snap_',advanced_xrays=False,verbo
         s.data['xcr'] = s.data['crpres'] / s.data['pres']
         s.data['crendens'] = s.data['cren'] * s.data['rho']
         s.data['ecth'] = s.data['cren'] / s.data['u']
+        s.data['crener'] = s.data['cren'] * s.data['mass']
     
     if 'xb' in s.data and 'xcr' in s.data:
         s.data['xbcr'] = s.data['xb'] / s.data['xcr']
@@ -504,7 +505,7 @@ def plot_quad_axis(
             seed = gaussian_filter(np.random.rand(*U.shape), sigma=1.5)    
             
             print(quad_ax.get_xlim(), quad_ax.get_ylim())
-            lic_img = lic.lic(U.T, V.T, seed=seed, length=100, contrast=True)
+            lic_img = lic.lic(U.T, V.T, seed=seed, length=30, contrast=True)
             
             quad_ax.imshow(
                 lic_img.T,
@@ -520,6 +521,166 @@ def plot_quad_axis(
             quad_ax.set_ylim(ylim)
 
     return quad_ax, mappable
+
+def plot_tri_axis(
+        s,
+        fig,
+        tri_ax_loc,        # 0 = left, 1 = right, 2 = bottom
+        plot_rect = (0.08, 0.08, 0.84, 0.84),  # (left, bottom, width, height) in figure coords
+        var = 'temp',
+        weighted = 'rho',
+        ranges = None,
+        cmap = 'viridis',
+        logplot = True,
+        divzero = False,
+        divzero_centre = None,
+
+        image_proj = 'side',
+        proj_on = True,
+        proj_fact = 0.1,
+        res = 258,
+        plotsize = 2,
+        colorbar = True,
+        add_vec = False,
+        vec_val = 'bfld',
+        numthreads = 1,
+        ):
+    """Inverted-Y (⅄) three-panel layout within a rectangular border.
+
+    All three axes share the same plot_rect; each renders the centre of its
+    snapshot.  A polygon clip path restricts visibility to the panel's region.
+    The three regions tile the rectangle exactly:
+
+        tri_ax_loc=0  left   — quadrilateral (0,0)-(0,1)-(0.5,1)-(0.5,0.5)
+        tri_ax_loc=1  right  — quadrilateral (0.5,1)-(1,1)-(1,0)-(0.5,0.5)
+        tri_ax_loc=2  bottom — triangle      (0,0)-(0.5,0.5)-(1,0)
+
+    (vertices in axes coordinates, centre of square is (0.5, 0.5))
+
+    Draw the three dividing lines in the calling script after plotting all
+    panels (vertical stem + two diagonals from the centre to the corners).
+    """
+    from matplotlib.patches import Polygon as MplPolygon
+
+    L, B, W, H = plot_rect
+
+    ## All panels are placed on the same square axes
+    tri_ax = fig.add_axes([L, B, W, H])
+
+    ## All panels show the centre of their respective simulation box
+    x_centre = s.boxsize / 2
+    y_centre = s.boxsize / 2
+    z_centre = s.boxsize / 2
+
+    if image_proj == 'side':
+        plot_centre = [x_centre, z_centre, y_centre]
+        axes_sum = [0, 2]
+    elif image_proj == 'top':
+        plot_centre = [x_centre, y_centre, z_centre]
+        axes_sum = [0, 1]
+
+    print(plot_centre)
+
+    ## Render slice / projection
+    if weighted is None:
+        s.axplot_Aslice(tri_ax, value=var, cmap=cmap, colorbar=colorbar,
+                        divzero=divzero, divzero_centre=divzero_centre, vrange=ranges,
+                        axes=axes_sum, logplot=logplot, box=[plotsize, plotsize],
+                        center=plot_centre, proj=proj_on, proj_fact=proj_fact,
+                        res=res, numthreads=numthreads)
+    else:
+        s.axplot_Aweightedslice(tri_ax, value=var, weights=weighted, cmap=cmap,
+                                colorbar=colorbar, divzero=divzero,
+                                divzero_centre=divzero_centre, vrange=ranges,
+                                axes=axes_sum, logplot=logplot, box=[plotsize, plotsize],
+                                center=plot_centre, proj=proj_on, proj_fact=proj_fact,
+                                res=res, numthreads=numthreads)
+
+    ## Grab the pcolormesh mappable before the clip patch is added
+    mappable = tri_ax.collections[-1] if tri_ax.collections else None
+
+    if add_vec:
+        out_axis = [i for i in [0, 1, 2] if i not in axes_sum][0]
+        slice_val = plot_centre[out_axis]
+        dz = plotsize * 0.05
+
+        mask_out = np.abs(s.pos[:, out_axis] - slice_val) < dz
+        mask_x = np.abs(s.pos[:, axes_sum[0]] - plot_centre[axes_sum[0]]) < (plotsize/2)
+        mask_y = np.abs(s.pos[:, axes_sum[1]] - plot_centre[axes_sum[1]]) < (plotsize/2)
+        mask = mask_out & mask_x & mask_y
+
+        if np.sum(mask) > 0:
+            pos = s.pos
+            vec = s.data[vec_val]
+
+            x = pos[:, axes_sum[0]]
+            y = pos[:, axes_sum[1]]
+            u = vec[:, axes_sum[0]]
+            v = vec[:, axes_sum[1]]
+
+            half = plotsize / 2.0
+            x_min = plot_centre[axes_sum[0]] - half
+            x_max = plot_centre[axes_sum[0]] + half
+            y_min = plot_centre[axes_sum[1]] - half
+            y_max = plot_centre[axes_sum[1]] + half
+            print(f"Streamline grid bounds: x=({x_min:.2f}, {x_max:.2f}), y=({y_min:.2f}, {y_max:.2f})")
+
+            x_grid = np.linspace(x_min, x_max, 256)
+            y_grid = np.linspace(y_min, y_max, 256)
+            X, Y = np.meshgrid(x_grid, y_grid)
+
+            from scipy.interpolate import griddata
+            import lic
+
+            U = griddata((x, y), u, (X, Y), method='nearest')
+            V = griddata((x, y), v, (X, Y), method='nearest')
+
+            xlim = tri_ax.get_xlim()
+            ylim = tri_ax.get_ylim()
+
+            from scipy.ndimage import gaussian_filter
+            seed = gaussian_filter(np.random.rand(*U.shape), sigma=1.5)
+
+            print(tri_ax.get_xlim(), tri_ax.get_ylim())
+            lic_img = lic.lic(U.T, V.T, length=30, contrast=True)
+
+            tri_ax.imshow(
+                lic_img.T,
+                origin='lower',
+                extent=[x_min, x_max, y_min, y_max],
+                cmap='gray',
+                alpha=0.3,
+                zorder=6,
+                aspect='auto'
+            )
+
+            tri_ax.set_xlim(xlim)
+            tri_ax.set_ylim(ylim)
+
+    ## Clip panel to its inverted-Y region (axes coordinates)
+    # Centre of the square is (0.5, 0.5); the three polygons tile it exactly.
+    clip_verts = {
+        0: [[0, 0], [0, 1], [0.5, 1], [0.5, 0.5]],   # left quadrilateral
+        1: [[0.5, 1], [1, 1], [1, 0], [0.5, 0.5]],    # right quadrilateral
+        2: [[0, 0], [0.5, 0.5], [1, 0]],               # bottom triangle (apex up)
+    }[tri_ax_loc]
+
+    clip_patch = MplPolygon(clip_verts, transform=tri_ax.transAxes, closed=True)
+    tri_ax.add_patch(clip_patch)
+    clip_patch.set_visible(False)
+    for coll in tri_ax.collections:
+        coll.set_clip_path(clip_patch)
+    for img in tri_ax.images:
+        img.set_clip_path(clip_patch)
+
+    tri_ax.set_facecolor('none')
+    for spine in tri_ax.spines.values():
+        spine.set_visible(False)
+    # tri_ax.set_xticks([])
+    # tri_ax.set_yticks([])
+
+    return tri_ax, mappable
+
 
 def find_shock_radius(s, r_range=(1e-3,1), nbins=500):
     # r_shock, t_arr = [], []

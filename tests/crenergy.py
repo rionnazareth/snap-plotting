@@ -102,11 +102,7 @@ for label, cfg in RUNS.items():
 
     data = {k: [] for k in ['time_myr', 'ekin', 'etherm', 'ecr', 'ebfld', 'epot', 'etotal', 'fshock', 'rshock', 'rshell',value, value2, 'edis','max_mach']}
 
-    l = r'$\rho = \rho_0 / 10$'
-    k=0
-    if label == l:
-        k = 3
-    for i in range(k,n_snaps):
+    for i in range(n_snaps):
         try:
             s = load_snap_data(num=i, snappath=path, snapbase=SNAPBASE)
         except Exception as exc:
@@ -133,6 +129,7 @@ for label, cfg in RUNS.items():
         eb = 0.0
         if 'bflden' in s.data:
             eb = np.sum(mass * s.data['bflden'])
+        eb=0.0
 
         ep = 0.0 
 
@@ -204,6 +201,9 @@ rho_fac = np.sqrt(np.array([1, 10, 0.1]))
 rho0 = 0.0148  # Initial density in code units (from initial conditions)
 t_free = calculate_R_free(beta = beta, tau = 1, b = 1, L_AGN = L_AGN, rho_0 = rho0*unit_rho)[1]/(3.15e13)#value of free time in Myears
 
+
+
+
 for label, se in snap_energy.items():
     try:
         col = RUNS[label].get('c', 'C0')
@@ -219,7 +219,7 @@ for label, se in snap_energy.items():
     E0_tot = se['etotal'][0]
     
     # (a) Total Energy
-    ax_norm.plot(se['rshell'], se['etotal'] / E_w, 'o-', color=col, ms=4, label=name)
+    ax_norm.plot(se['rshell'], (se['etotal']-E0_tot)/E_w, 'o-', color=col, ms=4, label=name)
     
     # (b) CR Energy
     if RUNS[label]['has_cr'] and np.any(se['ecr'] != 0):

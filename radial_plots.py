@@ -268,8 +268,8 @@ if __name__ == "__main__":
     num = 0
     rad_wind = 0.0078125
 
-    s1  = load_snap_data(num, snappath='/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/rho_vary/0.5/snap_002.hdf5', snapbase="snap_", ic=True)
-    s2  = load_snap_data(num, snappath='/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/rho_vary/5/snap_001.hdf5', snapbase="snap_", ic=True)
+    s1  = load_snap_data(num, snappath='/cosma8/data/dp317/dc-naza3/initialConditions/homogeneous/mtests/ics_mt.hdf5', snapbase="snap_", ic=True)
+    s2  = load_snap_data(num, snappath='/cosma8/data/dp317/dc-naza3/homogeneous/rhov_hires/5/snap_000.hdf5', snapbase="snap_", ic=True)
 
     # s1.data['bfld']*=18.55
     # unit_b = np.sqrt(unit_rho * unit_v**2)
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     radial_range = (1e-3, 1.5)  # in kpc
     # unit_l = s1.header['UnitLength_in_cm']
     # s1.data['er'] = s1.data['ne_cm'] / (s1.data['n_dens_cm'])
-    v = 'rho'
+    v = 'bfld'
     r_bin, temp_bin = radial_profile_lin(s1, field=v, r_range=radial_range, nbins=300, post_shock=post_shock, shock_path=shock_path)
     r_bin2, mach_bin = radial_profile_lin(s2, field=v, r_range=radial_range, nbins=300, post_shock=post_shock, shock_path=shock_path)
     # r_bin, vrad_bin = radial_profile(s1, value='vrad', radial_range=radial_range, nbins=1000, post_shock=post_shock, shock_path=shock_path)
@@ -309,8 +309,8 @@ if __name__ == "__main__":
                                             r_bin=r_bin,
                                             y1_values=temp_bin,
                                             y2_values=mach_bin,  # Placeholder for Mach number without CR
-                                            y1_label='snap',
-                                            y2_label='ic',
+                                            y1_label='ic',
+                                            y2_label='snap 0',
                                             xlabel='Radius [kpc]',
                                             ylabel='Density',
                                             title='Comparison',
@@ -341,4 +341,4 @@ if __name__ == "__main__":
     #                                         colors=("#9f1bb0", "#17c1db")  # Red and green
     #                                     )
 
-    plt.savefig('/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion/snap-plotting/tests/pap/cr_pass.png', dpi=300)
+    plt.savefig('/cosma8/data/dp317/dc-naza3/snap-plotting/tests/pap/cr_pass.png', dpi=300)

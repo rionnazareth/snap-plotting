@@ -38,17 +38,23 @@ plt.style.use(['science'])
 from lib import *
 
 # ── paths & settings ─────────────────────────────────────────────────────────
-BASE= '/home/dc-naza3/rds/rds-dirac-dp317-rvYpA2WHqGs/rion'
+BASE= '/cosma8/data/dp317/dc-naza3/homogeneous'
 SNAPBASE  = 'snap_'
-N_SNAPS   = 11
+N_SNAPS   = 9
 
 RUNS = {
-        r'Hydro only':      {'path': BASE + '/new/output_cnocr/',    'has_cr': False,  'ls': '--','m': '^',  'c': 'maroon'},
-      r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':', 'm': 's',  'c': 'orange'},
-    r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-', 'm': 'o',  'c': 'teal'},
+    #     r'Hydro only':      {'path': BASE + '/new/output_cnocr/',    'has_cr': False,  'ls': '--','m': '^',  'c': 'maroon'},
+    #   r'Hydro+B fields':       {'path': BASE + '/new/output_cbf/',    'has_cr': True,  'ls': ':', 'm': 's',  'c': 'orange'},
+    # r'Hydro+B fields+CRs':      {'path': BASE + '/new/output_cbcr/',   'has_cr': True,  'ls': '-', 'm': 'o',  'c': 'teal'},
+        # r'$\rho = \rho_0 \times 10$ et': {'path': BASE + '/et_backup/50/', 'has_cr': True, 'ls': '-', 'c': 'C0','m': 'o'},
+        #         r'$\rho = \rho_0/10$': {'path': BASE + '/et_backup/0.5/', 'has_cr': True, 'ls': ':', 'c': 'C1','m': 'D'},
+        # r'$\rho = \rho_0$': {'path': BASE + '/et_backup/5/', 'has_cr': True, 'ls': ':', 'c': 'C2','m': 'D'},
+            r'hydro run': {'path': BASE + '/mtests/output_bf/', 'ls': '-', 'c': 'C3','m': 'o'},
+    r'with CRs':    {'path': BASE + '/mtests/output_bfcr/', 'ls': '--', 'c': 'C4','m': 's'},
+    
 }
 
-OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'beta')
+OUTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mtests')
 os.makedirs(OUTDIR, exist_ok=True)
 
 # ── extract shock radii ───────────────────────────────────────────────────────
